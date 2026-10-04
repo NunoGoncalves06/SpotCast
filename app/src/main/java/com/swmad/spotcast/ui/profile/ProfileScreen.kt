@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,11 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.swmad.spotcast.domain.SpotCategory
 import com.swmad.spotcast.ui.spots.SpotsViewModel
+import com.swmad.spotcast.ui.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     email: String,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onSignOut: () -> Unit,
     viewModel: SpotsViewModel = viewModel()
 ) {
@@ -74,6 +78,29 @@ fun ProfileScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // The theme of the app: follow the phone, or always light, or always dark
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(text = "Appearance", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = themeMode == mode,
+                                onClick = { onThemeModeChange(mode) },
+                                label = { Text(mode.label) }
+                            )
+                        }
+                    }
+                    Text(
+                        text = "System follows the light or dark setting of the phone.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
 

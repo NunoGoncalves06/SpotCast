@@ -33,6 +33,7 @@ import com.swmad.spotcast.ui.map.MapScreen
 import com.swmad.spotcast.ui.profile.ProfileScreen
 import com.swmad.spotcast.ui.spots.AddSpotScreen
 import com.swmad.spotcast.ui.spots.SpotsScreen
+import com.swmad.spotcast.ui.theme.ThemeMode
 
 object Routes {
     const val SIGN_IN = "signIn"
@@ -57,7 +58,11 @@ private val bottomItems = listOf(
 )
 
 @Composable
-fun Navigation(authViewModel: AuthViewModel = viewModel()) {
+fun Navigation(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    authViewModel: AuthViewModel = viewModel()
+) {
     // The nav controller lives at the top of the hierarchy. Screens only get callbacks.
     val controller = rememberNavController()
     val backStackEntry by controller.currentBackStackEntryAsState()
@@ -155,6 +160,8 @@ fun Navigation(authViewModel: AuthViewModel = viewModel()) {
             composable(route = Routes.PROFILE) {
                 ProfileScreen(
                     email = user?.email?.value ?: "",
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
                     onSignOut = { authViewModel.signOut() }
                 )
             }
