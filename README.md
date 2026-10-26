@@ -8,6 +8,24 @@ the best day of the week.
 
 Package name: `com.swmad.spotcast`
 
+<p align="center">
+  <img src="docs/previews/demo.gif" width="300" alt="SpotCast in use: the Today map, a spot's report, switching from photos to surfing, adding and deleting a spot, and the dark theme">
+</p>
+
+## Preview
+
+| Today | Report card | Spots |
+|:---:|:---:|:---:|
+| <img src="docs/previews/today.jpg" width="240" alt="Today map with Go, Maybe and Skip pins"> | <img src="docs/previews/report.jpg" width="240" alt="Report card: not a photo day, great for surfing instead"> | <img src="docs/previews/spots.jpg" width="240" alt="Spots list with today's best activity per spot"> |
+| **Spot details** | **Delete, with confirmation** | **Dark theme** |
+| <img src="docs/previews/details.jpg" width="240" alt="Spot details with the verdict for every activity"> | <img src="docs/previews/delete.jpg" width="240" alt="Delete confirmation dialog"> | <img src="docs/previews/dark.jpg" width="240" alt="Today map in the dark theme"> |
+
+### Demo video
+
+[![Watch the SpotCast demo video](docs/previews/video_poster.jpg)](docs/SpotCast_demo.mp4)
+
+Click the image to open the video (41 seconds, recorded on the Pixel 10a emulator).
+
 ## Demo, report and synopsis
 
 - [Demo video](docs/SpotCast_demo.mp4) (41 seconds, recorded on the Pixel 10a emulator)
