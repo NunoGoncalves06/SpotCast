@@ -8,6 +8,21 @@ the best day of the week.
 
 Package name: `com.swmad.spotcast`
 
+## Install on Android
+
+**[Download SpotCast.apk](https://github.com/NunoGoncalves06/SpotCast/releases/latest/download/SpotCast.apk)**
+(Android 8.0 or newer, about 75 MB). All versions are on the
+[Releases](https://github.com/NunoGoncalves06/SpotCast/releases) page.
+
+1. Open the link on the phone, or copy the file to it.
+2. Open the downloaded file. Android asks to allow installs from this source (the browser
+   or the file manager) the first time; allow it and go back.
+3. Press Install, then open SpotCast and sign in or create an account.
+
+The APK is a debug build, signed with the debug key, so Play Protect may warn that the app is
+from an unknown developer; choose to install anyway. Installing it again over an older version
+keeps the account and the spots, because they are stored in Firebase.
+
 <p align="center">
   <img src="docs/previews/demo.gif" width="300" alt="SpotCast in use: the Today map, a spot's report, switching from photos to surfing, adding and deleting a spot, and the dark theme">
 </p>
