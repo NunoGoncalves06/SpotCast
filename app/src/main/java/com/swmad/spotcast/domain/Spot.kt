@@ -17,7 +17,10 @@ data class Spot(
     val latitude: Double,
     val longitude: Double,
     val createdAt: Long
-)
+) {
+    // Only beach spots are rated for beach days and surfing
+    val isByTheWater: Boolean get() = category == SpotCategory.BEACH
+}
 
 // A spot that has not been stored yet, so it has no id.
 data class NewSpot(

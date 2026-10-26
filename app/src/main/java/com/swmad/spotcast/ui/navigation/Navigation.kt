@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -52,8 +52,8 @@ object Routes {
 private data class BottomItem(val route: String, val label: String, val icon: ImageVector)
 
 private val bottomItems = listOf(
+    BottomItem(Routes.MAP, "Today", Icons.Filled.Map),
     BottomItem(Routes.SPOTS, "Spots", Icons.AutoMirrored.Filled.List),
-    BottomItem(Routes.MAP, "Map", Icons.Filled.Place),
     BottomItem(Routes.PROFILE, "Profile", Icons.Filled.Person)
 )
 
@@ -69,9 +69,9 @@ fun Navigation(
     val currentRoute = backStackEntry?.destination?.route
     val user = authViewModel.user
 
-    // A user that is already signed in goes straight to the spots
+    // A user that is already signed in goes straight to today's map
     val startDestination = remember {
-        if (authViewModel.user != null) Routes.SPOTS else Routes.SIGN_IN
+        if (authViewModel.user != null) Routes.MAP else Routes.SIGN_IN
     }
 
     Scaffold(
@@ -85,9 +85,9 @@ fun Navigation(
                             selected = currentRoute == item.route,
                             onClick = {
                                 controller.navigate(item.route) {
-                                    // Keeps only the spots list below the selected tab,
-                                    // so the back button always leads to the list
-                                    popUpTo(Routes.SPOTS)
+                                    // Keeps only the map below the selected tab,
+                                    // so the back button always leads to the map
+                                    popUpTo(Routes.MAP)
                                     launchSingleTop = true
                                 }
                             },
@@ -154,7 +154,8 @@ fun Navigation(
             }
             composable(route = Routes.MAP) {
                 MapScreen(
-                    onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) }
+                    onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) },
+                    onAddSpot = { controller.navigate(Routes.ADD_SPOT) }
                 )
             }
             composable(route = Routes.PROFILE) {
@@ -179,7 +180,7 @@ fun Navigation(
                 popUpTo(controller.graph.id) { inclusive = true }
             }
         } else if (user != null && onAuthScreen) {
-            controller.navigate(Routes.SPOTS) {
+            controller.navigate(Routes.MAP) {
                 popUpTo(controller.graph.id) { inclusive = true }
             }
         }

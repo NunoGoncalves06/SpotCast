@@ -3,7 +3,9 @@ package com.swmad.spotcast.ui.details
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,11 +45,15 @@ import com.swmad.spotcast.domain.DailyForecast
 import com.swmad.spotcast.domain.Spot
 import com.swmad.spotcast.domain.Weather
 import com.swmad.spotcast.domain.weatherDescription
-import com.swmad.spotcast.domain.weatherSymbol
+import com.swmad.spotcast.domain.rateAll
+import com.swmad.spotcast.ui.components.DeleteSpotDialog
 import com.swmad.spotcast.ui.components.ErrorMessage
 import com.swmad.spotcast.ui.components.Loader
-import com.swmad.spotcast.ui.components.MapMarker
-import com.swmad.spotcast.ui.components.OsmMap
+import com.swmad.spotcast.ui.components.MapPin
+import com.swmad.spotcast.ui.components.SpotMap
+import com.swmad.spotcast.ui.components.activityIcon
+import com.swmad.spotcast.ui.components.verdictTint
+import com.swmad.spotcast.ui.components.weatherIcon
 import com.swmad.spotcast.ui.components.formatCoordinates
 import java.time.Instant
 import java.time.ZoneId
@@ -121,7 +126,10 @@ fun DetailsScreen(
                         Text(text = error, color = MaterialTheme.colorScheme.error)
                     }
                     SpotInfo(spot)
-                    SpotMap(spot)
+                    SpotLocation(spot)
+                    (viewModel.weather as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()?.let {
+                        TodayReport(spot, it)
+                    }
                     WeatherSection(
                         state = viewModel.weather,
                         onRefresh = { viewModel.refreshWeather() }
@@ -132,23 +140,13 @@ fun DetailsScreen(
     }
 
     if (showDeleteDialog && spot != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete this spot?") },
-            text = { Text("\"${spot.name}\" is removed from your list. This cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.delete()
-                }) {
-                    Text("Delete")
-                }
+        DeleteSpotDialog(
+            spot = spot,
+            onConfirm = {
+                showDeleteDialog = false
+                viewModel.delete()
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }
@@ -177,21 +175,53 @@ private fun SpotInfo(spot: Spot, modifier: Modifier = Modifier) {
 
 // A small map that only shows where the spot is. Gestures are off so the page still scrolls.
 @Composable
-private fun SpotMap(spot: Spot, modifier: Modifier = Modifier) {
-    val markers = remember(spot.id) {
-        listOf(MapMarker(spot.id, spot.latitude, spot.longitude, spot.name))
+private fun SpotLocation(spot: Spot, modifier: Modifier = Modifier) {
+    val pins = remember(spot.id) {
+        listOf(MapPin(spot.id, spot.latitude, spot.longitude, spot.name))
     }
-    OsmMap(
-        markers = markers,
-        centerLatitude = spot.latitude,
-        centerLongitude = spot.longitude,
-        zoom = 15.0,
+    SpotMap(
+        pins = pins,
         interactive = false,
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
     )
+}
+
+// The full Go or Skip report: every activity, with the reason for its verdict
+@Composable
+private fun TodayReport(spot: Spot, day: DailyForecast, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Today here", style = MaterialTheme.typography.titleMedium)
+            rateAll(day, spot.isByTheWater).forEach { rating ->
+                val tint = verdictTint(rating.verdict)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(tint.container),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(activityIcon(rating.activity), contentDescription = null, tint = tint.content)
+                    }
+                    Column(modifier = Modifier.padding(start = 12.dp)) {
+                        Text(text = rating.title, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = rating.reason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -236,9 +266,11 @@ private fun WeatherContent(weather: Weather) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = weatherSymbol(weather.current.weatherCode),
-            style = MaterialTheme.typography.displayMedium
+        Icon(
+            imageVector = weatherIcon(weather.current.weatherCode),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(56.dp)
         )
         Column {
             Text(
@@ -273,7 +305,14 @@ private fun ForecastRow(day: DailyForecast, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = dayName, modifier = Modifier.width(64.dp))
-        Text(text = weatherSymbol(day.weatherCode), modifier = Modifier.width(36.dp))
+        Icon(
+            imageVector = weatherIcon(day.weatherCode),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .padding(end = 12.dp)
+                .size(20.dp)
+        )
         Text(
             text = weatherDescription(day.weatherCode),
             style = MaterialTheme.typography.bodySmall,

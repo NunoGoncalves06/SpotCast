@@ -1,6 +1,7 @@
 package com.swmad.spotcast.domain
 
 import java.time.LocalDate
+import java.time.LocalTime
 
 data class CurrentWeather(
     val temperature: Double,
@@ -13,7 +14,12 @@ data class DailyForecast(
     val minTemperature: Double?,
     val maxTemperature: Double?,
     val precipitationProbability: Int?,
-    val weatherCode: Int?
+    val weatherCode: Int?,
+    val maxWindSpeed: Double? = null,
+    val cloudCover: Int? = null,
+    val sunset: LocalTime? = null,
+    // From the marine API, only asked for spots by the water
+    val waveHeight: Double? = null
 )
 
 data class Weather(
@@ -50,16 +56,4 @@ fun weatherDescription(code: Int?): String = when (code) {
     95 -> "Thunderstorm"
     96, 99 -> "Thunderstorm with hail"
     else -> "Unknown"
-}
-
-fun weatherSymbol(code: Int?): String = when (code) {
-    0, 1 -> "☀️"
-    2 -> "⛅"
-    3 -> "☁️"
-    45, 48 -> "🌫️"
-    51, 53, 55, 56, 57 -> "🌦️"
-    61, 63, 65, 66, 67, 80, 81, 82 -> "🌧️"
-    71, 73, 75, 77, 85, 86 -> "❄️"
-    95, 96, 99 -> "⛈️"
-    else -> "❓"
 }

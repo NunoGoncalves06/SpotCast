@@ -24,6 +24,21 @@ sealed class WeatherUiState {
     data class Error(val message: String) : WeatherUiState()
 }
 
+fun WeatherResponse.toUiState(): WeatherUiState = when (this) {
+    is WeatherResponse.Success -> WeatherUiState.Loaded(weather)
+
+    is WeatherResponse.Failure.BadRequestError ->
+        WeatherUiState.Error("The weather service did not accept this position")
+
+    WeatherResponse.Failure.UnAvailable ->
+        WeatherUiState.Error("The weather service is not available right now")
+
+    WeatherResponse.Failure.NetworkError ->
+        WeatherUiState.Error("No connection to the weather service")
+
+    is WeatherResponse.Failure.GeneralError -> WeatherUiState.Error(message)
+}
+
 class DetailsViewModel(
     private val spotService: SpotService = FireStoreSpotService(),
     private val authService: AuthService = AuthFireBaseService(),
@@ -102,20 +117,7 @@ class DetailsViewModel(
     // Ktor suspends on its own dispatcher, so the main thread is not blocked here
     private suspend fun loadWeather(spot: Spot) {
         weather = WeatherUiState.Loading
-        weather = when (val response = weatherService.getForecast(spot.latitude, spot.longitude)) {
-            is WeatherResponse.Success -> WeatherUiState.Loaded(response.weather)
-
-            is WeatherResponse.Failure.BadRequestError ->
-                WeatherUiState.Error("The weather service did not accept this position")
-
-            WeatherResponse.Failure.UnAvailable ->
-                WeatherUiState.Error("The weather service is not available right now")
-
-            WeatherResponse.Failure.NetworkError ->
-                WeatherUiState.Error("No connection to the weather service")
-
-            is WeatherResponse.Failure.GeneralError -> WeatherUiState.Error(response.message)
-        }
+        weather = weatherService.getForecast(spot.latitude, spot.longitude, spot.isByTheWater).toUiState()
     }
 
     // When to close the client is application specific (lesson 8).

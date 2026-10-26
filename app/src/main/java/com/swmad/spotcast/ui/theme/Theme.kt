@@ -14,11 +14,12 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = Color(0xFF00382E),
     primaryContainer = Color(0xFF005143),
     onPrimaryContainer = GreenContainer,
-    secondary = Sand80,
-    onSecondary = Color(0xFF402D00),
-    secondaryContainer = Color(0xFF5C4300),
-    onSecondaryContainer = SandContainer,
-    tertiary = Sky80,
+    secondary = Green80,
+    onSecondary = Color(0xFF00382E),
+    // Used by the selected tab and chips
+    secondaryContainer = Color(0xFF1C3A2D),
+    onSecondaryContainer = Color(0xFF9FE0BF),
+    tertiary = Sand80,
     background = Color(0xFF0F1513),
     onBackground = Color(0xFFDEE4E0),
     surface = Color(0xFF0F1513),
@@ -36,10 +37,27 @@ private val DarkColorScheme = darkColorScheme(
 
 private val LightColorScheme = lightColorScheme(
     primary = Green40,
+    onPrimary = Color.White,
     primaryContainer = GreenContainer,
-    secondary = Sand40,
-    secondaryContainer = SandContainer,
-    tertiary = Sky40
+    onPrimaryContainer = OnGreenContainer,
+    secondary = Green40,
+    secondaryContainer = GreenContainer,
+    onSecondaryContainer = OnGreenContainer,
+    tertiary = Sand40,
+    tertiaryContainer = SandContainer,
+    background = Cream,
+    onBackground = Ink,
+    surface = Paper,
+    onSurface = Ink,
+    surfaceVariant = Color(0xFFE6E3D8),
+    onSurfaceVariant = InkSoft,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Paper,
+    surfaceContainer = Color(0xFFF7F4EC),
+    surfaceContainerHigh = Color(0xFFF2EFE6),
+    surfaceContainerHighest = Color(0xFFECE9DF),
+    outline = Color(0xFF77817C),
+    outlineVariant = Color(0xFFD3D0C5)
 )
 
 // Dynamic colouring is left out on purpose so the app keeps its own colours (lesson 1).

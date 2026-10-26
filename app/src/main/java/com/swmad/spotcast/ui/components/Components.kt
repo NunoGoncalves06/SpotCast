@@ -1,6 +1,9 @@
 package com.swmad.spotcast.ui.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,9 +26,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.swmad.spotcast.domain.Rating
 import com.swmad.spotcast.domain.Spot
 import java.util.Locale
 
@@ -91,24 +97,46 @@ fun EmptyState(title: String, text: String, modifier: Modifier = Modifier) {
     }
 }
 
+// rating is today's best activity at this spot, null while the forecast loads
 @Composable
-fun SpotCard(spot: Spot, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SpotCard(
+    spot: Spot,
+    rating: Rating?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = "Delete ${spot.name}"
+            )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Filled.Place,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = categoryIcon(spot.category),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = spot.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -117,13 +145,33 @@ fun SpotCard(spot: Spot, onClick: () -> Unit, modifier: Modifier = Modifier) {
                 )
                 Text(
                     text = spot.category.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondary
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = formatCoordinates(spot.latitude, spot.longitude),
-                    style = MaterialTheme.typography.bodySmall
-                )
+            }
+            if (rating != null) {
+                val tint = verdictTint(rating.verdict)
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(tint.container)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = activityIcon(rating.activity),
+                        contentDescription = null,
+                        tint = tint.content,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = rating.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = tint.content,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }

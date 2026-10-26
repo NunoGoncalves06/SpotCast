@@ -16,13 +16,21 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.swmad.spotcast.domain.Spot
+import com.swmad.spotcast.ui.components.DeleteSpotDialog
 import com.swmad.spotcast.ui.components.EmptyState
 import com.swmad.spotcast.ui.components.ErrorMessage
 import com.swmad.spotcast.ui.components.Loader
 import com.swmad.spotcast.ui.components.SpotCard
+import com.swmad.spotcast.ui.details.WeatherUiState
+import com.swmad.spotcast.ui.map.ratingFor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +39,7 @@ fun SpotsScreen(
     onOpenSpot: (String) -> Unit,
     viewModel: SpotsViewModel = viewModel()
 ) {
+    var toDelete by remember { mutableStateOf<Spot?>(null) }
     Scaffold(
         topBar = { TopAppBar(title = { Text("My spots") }) },
         floatingActionButton = {
@@ -54,7 +63,7 @@ fun SpotsScreen(
 
                 viewModel.spots.isEmpty() -> EmptyState(
                     title = "No spots yet",
-                    text = "Go somewhere you like and press Add spot to save the place."
+                    text = "Save the places you like. Each one gets a Go or Skip for the day."
                 )
 
                 else -> LazyColumn(
@@ -68,10 +77,28 @@ fun SpotsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(viewModel.spots, key = { it.id }) { spot ->
-                        SpotCard(spot = spot, onClick = { onOpenSpot(spot.id) })
+                        val day = (viewModel.forecasts[spot.id] as? WeatherUiState.Loaded)
+                            ?.weather?.daily?.firstOrNull()
+                        SpotCard(
+                            spot = spot,
+                            rating = day?.let { ratingFor(spot, it, null) },
+                            onClick = { onOpenSpot(spot.id) },
+                            onLongClick = { toDelete = spot }
+                        )
                     }
                 }
             }
         }
+    }
+
+    toDelete?.let { spot ->
+        DeleteSpotDialog(
+            spot = spot,
+            onConfirm = {
+                viewModel.deleteSpot(spot)
+                toDelete = null
+            },
+            onDismiss = { toDelete = null }
+        )
     }
 }

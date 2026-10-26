@@ -58,8 +58,8 @@ import com.google.android.gms.location.LocationServices
 import com.swmad.spotcast.domain.Place
 import com.swmad.spotcast.domain.SpotCategory
 import com.swmad.spotcast.integration.location.LocationService
-import com.swmad.spotcast.ui.components.MapMarker
-import com.swmad.spotcast.ui.components.OsmMap
+import com.swmad.spotcast.ui.components.MapPin
+import com.swmad.spotcast.ui.components.SpotMap
 import com.swmad.spotcast.ui.components.formatCoordinates
 
 private const val PERMISSION = Manifest.permission.ACCESS_FINE_LOCATION
@@ -410,8 +410,8 @@ private fun ConfirmPlaceDialog(
     onConfirm: () -> Unit,
     onReject: () -> Unit
 ) {
-    val markers = remember(place) {
-        listOf(MapMarker("candidate", place.latitude, place.longitude, place.name))
+    val pins = remember(place) {
+        listOf(MapPin("candidate", place.latitude, place.longitude, ""))
     }
     AlertDialog(
         onDismissRequest = onReject,
@@ -427,11 +427,8 @@ private fun ConfirmPlaceDialog(
                     text = formatCoordinates(place.latitude, place.longitude),
                     style = MaterialTheme.typography.bodySmall
                 )
-                OsmMap(
-                    markers = markers,
-                    centerLatitude = place.latitude,
-                    centerLongitude = place.longitude,
-                    zoom = 15.0,
+                SpotMap(
+                    pins = pins,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(240.dp)

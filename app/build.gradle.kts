@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.material.icons.extended)
     debugImplementation(libs.androidx.ui.tooling)
 
     //navigation
@@ -63,7 +64,9 @@ dependencies {
     implementation(libs.google.firebase.auth)
     implementation(libs.google.firebase.firestore)
 
-    //gps, and maps from OpenStreetMap (no API key)
+    //gps, and vector maps with MapLibre and the free OpenFreeMap tiles (no API key)
     implementation(libs.play.services.location)
-    implementation(libs.osmdroid.android)
+    implementation(libs.maplibre.android)
+
+    testImplementation(libs.junit)
 }
