@@ -1,5 +1,9 @@
 package com.swmad.spotcast.domain
 
+// The same limits are checked by firestore.rules, so a longer text would be refused by the database
+const val MAX_NAME_LENGTH = 100
+const val MAX_NOTE_LENGTH = 1000
+
 enum class SpotCategory(val label: String) {
     BEACH("Beach"),
     TRAIL("Trail"),

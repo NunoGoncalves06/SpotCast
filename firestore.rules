@@ -3,9 +3,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Each user owns the documents below users/{their uid} and nothing else.
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // The five fields the app writes (SpotFS.kt), with the limits of MAX_NAME_LENGTH and MAX_NOTE_LENGTH
+    // in domain/Spot.kt. createdAt is filled in by the server.
+    function isValidSpot(data) {
+      return data.keys().hasOnly(['name', 'category', 'note', 'location', 'createdAt'])
+        && data.keys().hasAll(['name', 'category', 'location'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.category in ['BEACH', 'TRAIL', 'VIEWPOINT', 'PARK', 'OTHER']
+        && data.note is string && data.note.size() <= 1000
+        && data.location is latlng
+        && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+    }
+
+    // Each user owns the spots below users/{their uid} and nothing else. Everything not matched is denied.
+    // There is no update rule on purpose: a saved spot cannot be edited in the app, only deleted.
+    match /users/{userId}/spots/{spotId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidSpot(request.resource.data);
     }
   }
 }

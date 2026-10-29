@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.location.LocationServices
+import com.swmad.spotcast.domain.MAX_NAME_LENGTH
+import com.swmad.spotcast.domain.MAX_NOTE_LENGTH
 import com.swmad.spotcast.domain.Place
 import com.swmad.spotcast.domain.SpotCategory
 import com.swmad.spotcast.integration.location.LocationService
@@ -135,7 +137,7 @@ fun AddSpotScreen(
         ) {
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { name = it.take(MAX_NAME_LENGTH) },
                 label = { Text("Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -157,7 +159,7 @@ fun AddSpotScreen(
 
             OutlinedTextField(
                 value = note,
-                onValueChange = { note = it },
+                onValueChange = { note = it.take(MAX_NOTE_LENGTH) },
                 label = { Text("Note (optional)") },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth()
