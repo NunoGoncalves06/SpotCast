@@ -39,7 +39,10 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,7 +106,18 @@ fun MapScreen(
     val selected = spots.firstOrNull { it.id == viewModel.selectedSpotId }
     val density = LocalDensity.current
     var sheetHeight by remember { mutableStateOf(320.dp) }
-    var toDelete by remember { mutableStateOf<Spot?>(null) }
+    // Only the id is kept, so the dialog survives a rotation. The spot is looked up in the list.
+    var toDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    val toDelete = spots.firstOrNull { it.id == toDeleteId }
+    val snackbarHost = remember { SnackbarHostState() }
+
+    // A failed delete is a message over the map. The list and the pins stay as they are.
+    // The message is cleared after it was shown: clearing it first would restart this effect and cancel the snackbar.
+    LaunchedEffect(viewModel.deleteError) {
+        val message = viewModel.deleteError ?: return@LaunchedEffect
+        snackbarHost.showSnackbar("The spot could not be deleted: $message")
+        viewModel.clearDeleteError()
+    }
 
     // System Back closes the sheet before it leaves the screen
     BackHandler(enabled = selected != null) { viewModel.selectSpot(null) }
@@ -127,7 +142,7 @@ fun MapScreen(
             selectedId = selected?.id,
             bottomInset = sheetHeight,
             onPinClick = { viewModel.selectSpot(it) },
-            onPinLongClick = { id -> toDelete = spots.firstOrNull { it.id == id } },
+            onPinLongClick = { id -> toDeleteId = id },
             onMapClick = { viewModel.selectSpot(null) },
             modifier = Modifier.fillMaxSize()
         )
@@ -140,7 +155,20 @@ fun MapScreen(
         ) {
             ActivityBar(selected = activity, onSelect = { viewModel.selectActivity(it) })
             if (spots.isNotEmpty()) {
-                SummaryPill(pins = pins, activity = activity, modifier = Modifier.padding(top = 8.dp))
+                val states = spots.map { viewModel.forecasts[it.id] }
+                val summary = mapSummary(
+                    total = spots.size,
+                    goes = pins.count { it.verdict == Verdict.GO },
+                    // a spot without an entry has not started loading yet
+                    loading = states.count { it == null || it is WeatherUiState.Loading },
+                    failed = states.count { it is WeatherUiState.Error },
+                    activity = activity
+                )
+                SummaryPill(
+                    summary,
+                    onRetry = { viewModel.retryFailedForecasts() },
+                    modifier = Modifier.padding(top = 8.dp, start = 12.dp, end = 12.dp)
+                )
             }
         }
 
@@ -181,12 +209,19 @@ fun MapScreen(
                 onOpenDetails = { onOpenSpot(spot.id) },
                 onRetry = { viewModel.retryForecast(spot) },
                 onClose = { viewModel.selectSpot(null) },
-                onDelete = { toDelete = spot },
+                onDelete = { toDeleteId = spot.id },
                 modifier = Modifier
                     .padding(10.dp)
                     .onSizeChanged { sheetHeight = with(density) { it.height.toDp() } + 10.dp }
             )
         }
+
+        SnackbarHost(
+            hostState = snackbarHost,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 96.dp)
+        )
     }
 
     toDelete?.let { spot ->
@@ -194,9 +229,9 @@ fun MapScreen(
             spot = spot,
             onConfirm = {
                 viewModel.deleteSpot(spot)
-                toDelete = null
+                toDeleteId = null
             },
-            onDismiss = { toDelete = null }
+            onDismiss = { toDeleteId = null }
         )
     }
 }
@@ -248,36 +283,34 @@ private fun ActivityBar(selected: Activity?, onSelect: (Activity?) -> Unit) {
 }
 
 @Composable
-private fun SummaryPill(pins: List<MapPin>, activity: Activity?, modifier: Modifier = Modifier) {
-    val rated = pins.filter { it.verdict != null }
-    val goes = rated.count { it.verdict == Verdict.GO }
-    val text = when {
-        rated.size < pins.size -> "Checking the forecast for ${pins.size} spots"
-        activity == null -> "$goes of ${pins.size} spots are a Go for something today"
-        else -> "$goes of ${pins.size} spots are a Go for ${activity.purpose} today"
-    }
+private fun SummaryPill(summary: MapSummary, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
         shadowElevation = 2.dp,
-        modifier = modifier
+        modifier = if (summary.canRetry) {
+            // a tap target of the minimum size, so the pill can be hit with a thumb
+            modifier.minimumInteractiveComponentSize().clip(CircleShape).clickable(onClick = onRetry)
+        } else {
+            modifier
+        }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (rated.size < pins.size) {
+            if (summary.checking) {
                 CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
             } else {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(verdictColor(if (goes > 0) Verdict.GO else Verdict.SKIP))
+                        .background(verdictColor(summary.dot))
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge)
+            Text(summary.text, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

@@ -13,17 +13,20 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.swmad.spotcast.domain.Spot
 import com.swmad.spotcast.ui.components.DeleteSpotDialog
 import com.swmad.spotcast.ui.components.EmptyState
 import com.swmad.spotcast.ui.components.ErrorMessage
@@ -39,9 +42,22 @@ fun SpotsScreen(
     onOpenSpot: (String) -> Unit,
     viewModel: SpotsViewModel = viewModel()
 ) {
-    var toDelete by remember { mutableStateOf<Spot?>(null) }
+    // Only the id is kept, so the dialog survives a rotation. The spot is looked up in the list.
+    var toDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    val toDelete = viewModel.spots.firstOrNull { it.id == toDeleteId }
+    val snackbarHost = remember { SnackbarHostState() }
+
+    // A failed delete is a message at the bottom. The list stays on screen.
+    // The message is cleared after it was shown: clearing it first would restart this effect and cancel the snackbar.
+    LaunchedEffect(viewModel.deleteError) {
+        val message = viewModel.deleteError ?: return@LaunchedEffect
+        snackbarHost.showSnackbar("The spot could not be deleted: $message")
+        viewModel.clearDeleteError()
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("My spots") }) },
+        snackbarHost = { SnackbarHost(snackbarHost) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddSpot,
@@ -83,7 +99,7 @@ fun SpotsScreen(
                             spot = spot,
                             rating = day?.let { ratingFor(spot, it, null) },
                             onClick = { onOpenSpot(spot.id) },
-                            onLongClick = { toDelete = spot }
+                            onLongClick = { toDeleteId = spot.id }
                         )
                     }
                 }
@@ -96,9 +112,9 @@ fun SpotsScreen(
             spot = spot,
             onConfirm = {
                 viewModel.deleteSpot(spot)
-                toDelete = null
+                toDeleteId = null
             },
-            onDismiss = { toDelete = null }
+            onDismiss = { toDeleteId = null }
         )
     }
 }

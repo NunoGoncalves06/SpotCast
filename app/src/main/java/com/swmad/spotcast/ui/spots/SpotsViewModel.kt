@@ -34,7 +34,12 @@ class SpotsViewModel(
     var isLoading by mutableStateOf(true)
         private set
 
+    // A problem with the whole list, such as no connection to Firestore. The screens show it instead of the list.
     var error by mutableStateOf<String?>(null)
+        private set
+
+    // A failed delete is a one-off message. The list stays on screen, so it has its own state.
+    var deleteError by mutableStateOf<String?>(null)
         private set
 
     // Forecast per spot id
@@ -56,6 +61,10 @@ class SpotsViewModel(
         selectedSpotId = spotId
     }
 
+    fun clearDeleteError() {
+        deleteError = null
+    }
+
     // Firestore removes the document and the listener emits the list without it
     fun deleteSpot(spot: Spot) {
         val userId = authService.currentUser?.id ?: return
@@ -67,13 +76,18 @@ class SpotsViewModel(
                 throw e
             } catch (e: Exception) {
                 Log.v(TAG, e.toString())
-                error = e.localizedMessage ?: "The spot could not be deleted"
+                deleteError = e.localizedMessage ?: "The spot could not be deleted"
             }
         }
     }
 
     fun retryForecast(spot: Spot) {
         loadForecast(spot)
+    }
+
+    // For when the connection is back: asks again for the spots that have no forecast
+    fun retryFailedForecasts() {
+        spots.filter { forecasts[it.id] is WeatherUiState.Error }.forEach { loadForecast(it) }
     }
 
     // One coroutine per spot, so the forecasts are fetched in parallel
