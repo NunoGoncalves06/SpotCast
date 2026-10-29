@@ -13,3 +13,12 @@
 .cxx
 *.jks
 *.keystore
+
+# Keys and local environment files
+.env
+*.pem
+*.p12
+
+# Release builds are handed out as GitHub releases, not committed
+*.apk
+*.aab
