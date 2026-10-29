@@ -38,7 +38,7 @@ class KtorGeocodingService(private val client: HttpClient = createClient()) : Ge
     companion object {
         private const val BASE_URL = "https://nominatim.openstreetmap.org/search"
         // Nominatim asks for a User-Agent that says which app it is and where to reach its author
-        private const val USER_AGENT = "SpotCast/1.0 (https://github.com/NunoGoncalves06/SpotCast)"
+        private const val USER_AGENT = "SpotCast/1.1 (https://github.com/NunoGoncalves06/SpotCast)"
         private const val TAG = "GEOCODING SERVICE"
 
         private fun createClient() = HttpClient(Android) {

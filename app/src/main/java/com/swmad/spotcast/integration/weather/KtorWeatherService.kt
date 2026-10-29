@@ -31,7 +31,7 @@ class KtorWeatherService(private val client: HttpClient = createClient()) : Weat
     companion object {
         private const val BASE_URL = "https://api.open-meteo.com/v1/forecast"
         private const val MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
-        private const val USER_AGENT = "SpotCast/1.0"
+        private const val USER_AGENT = "SpotCast/1.1"
         private const val TAG = "WEATHER SERVICE"
         private const val FORECAST_DAYS = 7
 
