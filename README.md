@@ -1,127 +1,112 @@
 # SpotCast
 
-Android app for the SWMAD-01 group project. SpotCast tells you where to go today: every
-spot you save gets a **Go**, **Maybe** or **Skip** for a beach day, surfing, hiking, photos
-and a picnic, worked out from its own forecast. The app opens on a map where each pin has
-the colour of today's answer; tap a pin for the reason, a better activity for that spot, and
-the best day of the week.
+SpotCast tells you where to go today. Every spot you save gets a **Go**, **Maybe** or **Skip** for a beach day,
+surfing, hiking, photos and a picnic, worked out from the forecast of that exact place. The app opens on a map
+where each pin has the colour of today's answer. Tap a pin for the reason, a better activity for that spot, and the
+best day of the week.
 
-Package name: `com.swmad.spotcast`
-
-## Install on Android
-
-**[Download SpotCast.apk](https://github.com/NunoGoncalves06/SpotCast/releases/latest/download/SpotCast.apk)**
-(Android 8.0 or newer, about 75 MB). All versions are on the
-[Releases](https://github.com/NunoGoncalves06/SpotCast/releases) page.
-
-1. Open the link on the phone, or copy the file to it.
-2. Open the downloaded file. Android asks to allow installs from this source (the browser
-   or the file manager) the first time; allow it and go back.
-3. Press Install, then open SpotCast and sign in or create an account.
-
-The APK is a debug build, signed with the debug key, so Play Protect may warn that the app is
-from an unknown developer; choose to install anyway. Installing it again over an older version
-keeps the account and the spots, because they are stored in Firebase.
+It is an Android app in Kotlin and Jetpack Compose, made for the course SWMAD-01 Mobile Application Development
+(Aarhus University). Package name: `com.swmad.spotcast`.
 
 <p align="center">
-  <img src="docs/previews/demo.gif" width="300" alt="SpotCast in use: the Today map, a spot's report, switching from photos to surfing, adding and deleting a spot, and the dark theme">
+  <img src="docs/previews/demo.gif" width="300" alt="SpotCast in use: the Today map, a spot's report and its best day, adding a spot by address, deleting a spot, and the dark theme">
 </p>
+
+## Try it
+
+- **[Download SpotCast.apk](https://github.com/NunoGoncalves06/SpotCast/releases/latest/download/SpotCast.apk)**
+  (Android 8.0 or newer, about 75 MB). All versions are on the
+  [Releases](https://github.com/NunoGoncalves06/SpotCast/releases) page.
+- [Demo video](docs/SpotCast_demo.mp4) (1 minute, recorded on the Pixel 10a emulator)
+- [Project report](docs/Report.pdf) (the version in this repository leaves out the test user line)
+- [Synopsis](docs/Synopsis.pdf)
+
+To install the APK: open the file on the phone and allow installs from the browser or file manager when Android asks,
+then press Install and sign in or create an account. The APK is a debug build signed with the debug key, so Play
+Protect may warn about an unknown developer; choose to install anyway.
+
+[![Watch the SpotCast demo video](docs/previews/video_poster.jpg)](docs/SpotCast_demo.mp4)
 
 ## Preview
 
 | Today | Report card | Spots |
 |:---:|:---:|:---:|
-| <img src="docs/previews/today.jpg" width="240" alt="Today map with Go, Maybe and Skip pins"> | <img src="docs/previews/report.jpg" width="240" alt="Report card: not a photo day, great for surfing instead"> | <img src="docs/previews/spots.jpg" width="240" alt="Spots list with today's best activity per spot"> |
+| <img src="docs/previews/today.jpg" width="240" alt="Today map with Go, Maybe and Skip pins"> | <img src="docs/previews/report.jpg" width="240" alt="Report card for a spot in Photos mode: not a photo day, with the best day of the week"> | <img src="docs/previews/spots.jpg" width="240" alt="Spots list with today's best activity per spot"> |
 | **Spot details** | **Delete, with confirmation** | **Dark theme** |
 | <img src="docs/previews/details.jpg" width="240" alt="Spot details with the verdict for every activity"> | <img src="docs/previews/delete.jpg" width="240" alt="Delete confirmation dialog"> | <img src="docs/previews/dark.jpg" width="240" alt="Today map in the dark theme"> |
 
-### Demo video
+## Run it yourself
 
-[![Watch the SpotCast demo video](docs/previews/video_poster.jpg)](docs/SpotCast_demo.mp4)
+The app needs one account of your own: a Firebase project. It has no other key. The map (OpenFreeMap tiles with
+MapLibre) and both weather services (Open-Meteo) and the address search (Nominatim) need no key.
 
-Click the image to open the video (41 seconds, recorded on the Pixel 10a emulator).
+### 1. Create the Firebase project
 
-## Demo, report and synopsis
+1. Open https://console.firebase.google.com and create a project (analytics can stay off).
+2. Add an Android app with the package name **`com.swmad.spotcast`**. No SHA-1 is needed.
+3. Download `google-services.json` and put it in the `app/` folder. It is not in this repository (it is listed in
+   `.gitignore`); `app/google-services.json.example` shows its shape.
+4. **Authentication > Sign-in method:** enable **Email/Password**.
+5. **Firestore Database:** create the database, open the **Rules** tab, paste the content of
+   [`firestore.rules`](firestore.rules) and press **Publish**.
 
-- [Demo video](docs/SpotCast_demo.mp4) (41 seconds, recorded on the Pixel 10a emulator)
-- [Project report](docs/Report.pdf)
-- [Synopsis](docs/Synopsis.pdf)
+Without step 3 the project does not build. To only compile it, copy the example file to
+`app/google-services.json`; the app then starts, but sign-in does not work until the file comes from your own project.
 
-## What is in the project
+### 2. Build and run
 
-| Requirement | Where |
-|---|---|
-| Kotlin, coroutines | all of `app/src/main/java/com/swmad/spotcast` |
-| Jetpack Compose | `ui/` |
-| Compose Navigation | `ui/navigation/Navigation.kt` |
-| Firebase Authentication | `integration/auth/AuthFireBaseService.kt` |
-| Firestore | `integration/firestore/FireStoreSpotService.kt` |
-| HTTP API with Ktor (Open-Meteo forecast and marine) | `integration/weather/KtorWeatherService.kt` |
-| HTTP API with Ktor (Nominatim address search) | `integration/geocoding/KtorGeocodingService.kt` |
-| GPS | `integration/location/LocationService.kt`, `ui/spots/AddSpotScreen.kt` |
-| Save a place you are not at | `ui/spots/AddSpotScreen.kt` ("Another place": address or coordinates, confirmed on a map) |
-| Go / Maybe / Skip rules per activity | `domain/Activity.kt`, tested in `app/src/test/.../ActivityRulesTest.kt` |
-| Map-first home with activity bar and report card | `ui/map/MapScreen.kt` |
-| Map (MapLibre with OpenFreeMap tiles, recoloured) | `ui/components/SpotMap.kt`, used in `ui/map/MapScreen.kt`, `ui/details/DetailsScreen.kt` and `ui/spots/AddSpotScreen.kt` |
-| Delete a spot with confirmation | `ui/components/DeleteSpotDialog.kt`: hold a spot in the list or its pin, or the delete button on the card or in the details |
-| Light, dark or system theme | `ui/theme/ThemeViewModel.kt`, chosen in `ui/profile/ProfileScreen.kt`, applied in `MainActivity.kt` |
-| Firestore real-time updates | `FireStoreSpotService.observeSpots`, collected in `ui/spots/SpotsViewModel.kt` |
-
-The map is drawn by MapLibre with the free OpenFreeMap vector tiles (OpenStreetMap data). It
-needs no API key, no Google Cloud project and no billing account. The weather APIs need no
-key either. The only account the app depends on
-is the Firebase project.
-
-## Setup
-
-### 1. Firebase
-
-1. Create a project at https://console.firebase.google.com (analytics can stay off).
-2. Add an Android app with the package name `com.swmad.spotcast`.
-3. Download `google-services.json` and put it in `app/`. This file is not in the
-   repository (it is listed in `.gitignore`), so the project does not build until it is
-   there.
-4. Authentication: enable the provider "Email/Password".
-5. Firestore Database: create the database, then paste the content of `firestore.rules`
-   into the Rules tab and publish.
-6. Create the test user for the report under Authentication > Users, or sign up in the app.
-
-### 2. Run
-
-Open the `SpotCast` folder in Android Studio and run the `app` configuration, or:
+Open this folder in Android Studio and run the `app` configuration on an emulator or a phone, or from a terminal:
 
 ```
 gradlew :app:assembleDebug
 ```
 
-In the emulator the GPS position is set under Extended controls > Location.
+In the emulator, set the GPS position under **Extended controls > Location** before you use "Where I am now". Sign up
+in the app with any e-mail and a password of six characters or more.
 
-## Hand-in
-
-- Clean zip: run `gradlew clean`, then zip the folder without `.gradle`, `.idea`, `.kotlin`,
-  `build`, `app/build` and `local.properties`. Keep `app/google-services.json` in the zip,
-  otherwise the app cannot sign in on the examiner's machine.
-- A signed APK is only asked for when Google Maps is used, which this app does not.
-
-## Data
-
-Firestore: `users/{uid}/spots/{spotId}` with the fields `name`, `category`, `note`,
-`location` (geopoint) and `createdAt` (server timestamp).
-
-Weather: `GET https://api.open-meteo.com/v1/forecast` with `latitude`, `longitude`,
-`current`, `daily` (weather code, temperature, rain chance, wind, cloud cover, sunset),
-`timezone` and `forecast_days`. For beach spots also
-`GET https://marine-api.open-meteo.com/v1/marine` with `daily=wave_height_max`. No key is needed.
-
-Address search: `GET https://nominatim.openstreetmap.org/search` with `q`, `format=jsonv2`
-and `limit=1`. No key is needed; the service asks for a User-Agent and at most one request
-per second.
-
-Map style and tiles: `https://tiles.openfreemap.org/styles/positron`, (c) OpenMapTiles,
-data (c) OpenStreetMap contributors.
-
-## Tests
+### 3. Tests
 
 ```
 gradlew :app:testDebugUnitTest
 ```
+
+The unit tests cover the Go, Maybe and Skip rules, the two Ktor services (with fake server answers, including broken
+ones), the summary line of the map and the view model of the spots.
+
+## How it decides
+
+The rules are fixed and the same for everybody; they are in [`domain/Activity.kt`](app/src/main/java/com/swmad/spotcast/domain/Activity.kt).
+For example, surfing is a Go with waves of 0.8 m or more and wind under 40 km/h, and photos are a Go when broken
+clouds can light up the sunset. A Skip always says why. Only beach spots are rated for beach days and surfing, because
+the wave model returns data for any point and would otherwise rate a city park.
+
+## What is in the project
+
+| Part | Where |
+|---|---|
+| Kotlin and coroutines | all of `app/src/main/java/com/swmad/spotcast` |
+| Jetpack Compose | `ui/` |
+| Compose Navigation | `ui/navigation/Navigation.kt` |
+| Firebase Authentication | `integration/auth/AuthFireBaseService.kt` |
+| Firestore, with a real-time listener | `integration/firestore/FireStoreSpotService.kt`, collected in `ui/spots/SpotsViewModel.kt` |
+| Weather with Ktor (Open-Meteo forecast and marine) | `integration/weather/KtorWeatherService.kt` |
+| Address search with Ktor (Nominatim) | `integration/geocoding/KtorGeocodingService.kt` |
+| GPS | `integration/location/LocationService.kt`, `ui/spots/AddSpotScreen.kt` |
+| Map with MapLibre, recoloured for light and dark | `ui/components/SpotMap.kt` |
+| Today map, activity bar and report card | `ui/map/MapScreen.kt` |
+| Save a place you are not at (address or coordinates, confirmed on a map) | `ui/spots/AddSpotScreen.kt` |
+| Delete a spot, always with a confirmation | `ui/components/DeleteSpotDialog.kt` |
+| Light, dark or system theme | `ui/theme/ThemeViewModel.kt`, `ui/profile/ProfileScreen.kt` |
+| Security rules | `firestore.rules` |
+
+## Data and services
+
+- **Firestore:** `users/{uid}/spots/{spotId}` with `name`, `category`, `note`, `location` (geopoint) and `createdAt`
+  (server timestamp). The rules let a user read and delete only their own spots, and accept a new spot only with
+  these five fields, a name of up to 100 characters and a note of up to 1000.
+- **Forecast:** `GET https://api.open-meteo.com/v1/forecast` (temperature, rain chance, wind, cloud cover, sunset,
+  seven days) and, for beach spots, `GET https://marine-api.open-meteo.com/v1/marine` (`daily=wave_height_max`).
+- **Address search:** `GET https://nominatim.openstreetmap.org/search` with `format=jsonv2` and `limit=1`. The service
+  asks for a User-Agent that names the app, and for at most one request per second.
+- **Map:** style `https://tiles.openfreemap.org/styles/positron`, &copy; OpenMapTiles, data &copy; OpenStreetMap
+  contributors.
