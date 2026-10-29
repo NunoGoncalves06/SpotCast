@@ -14,14 +14,23 @@ class LocationService(private val locationProvider: FusedLocationProviderClient)
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(): Location? {
         return try {
-            val res =
-                locationProvider.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                    .await()
-            Log.v(this::class.qualifiedName, res.toString())
-            res
+            read(Priority.PRIORITY_HIGH_ACCURACY)
         } catch (ex: SecurityException) {
+            // High accuracy needs the fine permission. The user may have given the approximate one only.
             Log.v(this::class.qualifiedName, ex.message.toString())
-            null
+            try {
+                read(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+            } catch (ex2: SecurityException) {
+                Log.v(this::class.qualifiedName, ex2.message.toString())
+                null
+            }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun read(priority: Int): Location? {
+        val res = locationProvider.getCurrentLocation(priority, null).await()
+        Log.v(this::class.qualifiedName, res.toString())
+        return res
     }
 }

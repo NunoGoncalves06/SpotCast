@@ -64,7 +64,16 @@ import com.swmad.spotcast.ui.components.MapPin
 import com.swmad.spotcast.ui.components.SpotMap
 import com.swmad.spotcast.ui.components.formatCoordinates
 
-private const val PERMISSION = Manifest.permission.ACCESS_FINE_LOCATION
+// Android 12 and newer lets the user give an approximate position only, and asks for both permissions
+// in one request. The position is read if either one is granted.
+private val PERMISSIONS = arrayOf(
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
+)
+
+private fun hasLocationPermission(context: android.content.Context): Boolean = PERMISSIONS.any {
+    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,18 +88,11 @@ fun AddSpotScreen(
     }
 
     // Permission handling as in lesson 10
-    var granted by remember {
-        mutableStateOf(
-            PackageManager.PERMISSION_GRANTED == ContextCompat.checkSelfPermission(
-                context,
-                PERMISSION
-            )
-        )
-    }
+    var granted by remember { mutableStateOf(hasLocationPermission(context)) }
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        granted = isGranted
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { result: Map<String, Boolean> ->
+        granted = result.values.any { it }
     }
 
     // Form fields survive rotation
@@ -100,7 +102,7 @@ fun AddSpotScreen(
 
     LaunchedEffect(Unit) {
         if (!granted) {
-            launcher.launch(PERMISSION)
+            launcher.launch(PERMISSIONS)
         }
     }
     // Reads the position as soon as the permission is there
@@ -186,7 +188,7 @@ fun AddSpotScreen(
                     coordinates = viewModel.location?.let {
                         formatCoordinates(it.latitude, it.longitude)
                     },
-                    onRequestPermission = { launcher.launch(PERMISSION) },
+                    onRequestPermission = { launcher.launch(PERMISSIONS) },
                     onRefresh = { viewModel.locate(locationService) }
                 )
             } else {
