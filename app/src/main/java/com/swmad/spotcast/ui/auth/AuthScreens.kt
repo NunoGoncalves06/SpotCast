@@ -42,7 +42,7 @@ fun SignInScreen(
     var password by rememberSaveable { mutableStateOf("") }
     var validationError by rememberSaveable { mutableStateOf<String?>(null) }
 
-    AuthLayout(title = "Sign in", subtitle = "Your spots and their forecast") {
+    AuthLayout(title = "Sign in", subtitle = "Know before you go: Go or Skip for every spot") {
         EmailField(value = email, onValueChange = { email = it }, enabled = !isLoading)
         PasswordField(
             value = password,

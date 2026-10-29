@@ -45,6 +45,8 @@ import com.swmad.spotcast.domain.DailyForecast
 import com.swmad.spotcast.domain.Spot
 import com.swmad.spotcast.domain.Weather
 import com.swmad.spotcast.domain.weatherDescription
+import com.swmad.spotcast.domain.Verdict
+import com.swmad.spotcast.domain.bestRating
 import com.swmad.spotcast.domain.rateAll
 import com.swmad.spotcast.ui.components.DeleteSpotDialog
 import com.swmad.spotcast.ui.components.ErrorMessage
@@ -126,10 +128,10 @@ fun DetailsScreen(
                         Text(text = error, color = MaterialTheme.colorScheme.error)
                     }
                     SpotInfo(spot)
-                    SpotLocation(spot)
-                    (viewModel.weather as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()?.let {
-                        TodayReport(spot, it)
-                    }
+                    val today = (viewModel.weather as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
+                    // The pin has the colour of the spot's best verdict for today, as on the Today map
+                    SpotLocation(spot, verdict = today?.let { bestRating(it, spot.isByTheWater).verdict })
+                    today?.let { TodayReport(spot, it) }
                     WeatherSection(
                         state = viewModel.weather,
                         onRefresh = { viewModel.refreshWeather() }
@@ -175,9 +177,9 @@ private fun SpotInfo(spot: Spot, modifier: Modifier = Modifier) {
 
 // A small map that only shows where the spot is. Gestures are off so the page still scrolls.
 @Composable
-private fun SpotLocation(spot: Spot, modifier: Modifier = Modifier) {
-    val pins = remember(spot.id) {
-        listOf(MapPin(spot.id, spot.latitude, spot.longitude, spot.name))
+private fun SpotLocation(spot: Spot, verdict: Verdict?, modifier: Modifier = Modifier) {
+    val pins = remember(spot.id, verdict) {
+        listOf(MapPin(spot.id, spot.latitude, spot.longitude, spot.name, verdict))
     }
     SpotMap(
         pins = pins,
