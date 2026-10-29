@@ -18,7 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,6 +36,7 @@ import com.swmad.spotcast.ui.map.MapScreen
 import com.swmad.spotcast.ui.profile.ProfileScreen
 import com.swmad.spotcast.ui.spots.AddSpotScreen
 import com.swmad.spotcast.ui.spots.SpotsScreen
+import com.swmad.spotcast.ui.spots.SpotsViewModel
 import com.swmad.spotcast.ui.theme.ThemeMode
 
 object Routes {
@@ -56,6 +60,17 @@ private val bottomItems = listOf(
     BottomItem(Routes.SPOTS, "Spots", Icons.AutoMirrored.Filled.List),
     BottomItem(Routes.PROFILE, "Profile", Icons.Filled.Person)
 )
+
+// Today, Spots and Profile show the same spots, so they share one SpotsViewModel: one Firestore listener, one
+// forecast per spot, and the chosen activity stays when the user changes tab. It belongs to the Today entry,
+// which stays below the tabs and is removed with the rest of the back stack at sign out, so the spots of one
+// user are never shown to the next.
+@Composable
+private fun sharedSpotsViewModel(controller: NavHostController, entry: NavBackStackEntry): SpotsViewModel {
+    val owner = remember(entry) { controller.getBackStackEntry(Routes.MAP) }
+    // Looked up once: asking a destroyed entry for its view model store throws while the sign-out animation runs
+    return remember(owner) { ViewModelProvider(owner)[SpotsViewModel::class.java] }
+}
 
 @Composable
 fun Navigation(
@@ -128,10 +143,11 @@ fun Navigation(
                     }
                 )
             }
-            composable(route = Routes.SPOTS) {
+            composable(route = Routes.SPOTS) { entry ->
                 SpotsScreen(
                     onAddSpot = { controller.navigate(Routes.ADD_SPOT) },
-                    onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) }
+                    onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) },
+                    viewModel = sharedSpotsViewModel(controller, entry)
                 )
             }
             composable(route = Routes.ADD_SPOT) {
@@ -152,18 +168,20 @@ fun Navigation(
                     onDeleted = { controller.popBackStack() }
                 )
             }
-            composable(route = Routes.MAP) {
+            composable(route = Routes.MAP) { entry ->
                 MapScreen(
                     onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) },
-                    onAddSpot = { controller.navigate(Routes.ADD_SPOT) }
+                    onAddSpot = { controller.navigate(Routes.ADD_SPOT) },
+                    viewModel = sharedSpotsViewModel(controller, entry)
                 )
             }
-            composable(route = Routes.PROFILE) {
+            composable(route = Routes.PROFILE) { entry ->
                 ProfileScreen(
                     email = user?.email?.value ?: "",
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
-                    onSignOut = { authViewModel.signOut() }
+                    onSignOut = { authViewModel.signOut() },
+                    viewModel = sharedSpotsViewModel(controller, entry)
                 )
             }
         }
