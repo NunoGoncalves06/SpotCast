@@ -29,6 +29,10 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // android.util.Log is only a stub in unit tests; this makes it do nothing instead of throwing
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -69,4 +73,6 @@ dependencies {
     implementation(libs.maplibre.android)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }

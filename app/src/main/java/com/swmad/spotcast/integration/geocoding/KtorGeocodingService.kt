@@ -15,6 +15,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.url
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -32,29 +33,30 @@ data class NominatimPlaceDto(
 
 // Address lookup with Nominatim, the search service of OpenStreetMap. No API key is needed,
 // but the service asks every app to send a User-Agent and to keep to one request per second.
-class KtorGeocodingService : GeocodingService {
+class KtorGeocodingService(private val client: HttpClient = createClient()) : GeocodingService {
 
     companion object {
         private const val BASE_URL = "https://nominatim.openstreetmap.org/search"
-        private const val USER_AGENT = "SpotCast/1.0 (student project)"
+        // Nominatim asks for a User-Agent that says which app it is and where to reach its author
+        private const val USER_AGENT = "SpotCast/1.0 (https://github.com/NunoGoncalves06/SpotCast)"
         private const val TAG = "GEOCODING SERVICE"
-    }
 
-    private val client = HttpClient(Android) {
-        expectSuccess = true
+        private fun createClient() = HttpClient(Android) {
+            expectSuccess = true
 
-        engine {
-            connectTimeout = 10_000
-            socketTimeout = 10_000
-        }
-        install(ContentNegotiation) {
-            json(Json {
-                isLenient = true
-                ignoreUnknownKeys = true
-            })
-        }
-        install(DefaultRequest) {
-            header(HttpHeaders.UserAgent, USER_AGENT)
+            engine {
+                connectTimeout = 10_000
+                socketTimeout = 10_000
+            }
+            install(ContentNegotiation) {
+                json(Json {
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+            install(DefaultRequest) {
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
         }
     }
 
@@ -82,6 +84,12 @@ class KtorGeocodingService : GeocodingService {
             Log.v(TAG, e.toString())
             GeocodingResponse.Failure.NetworkError
         } catch (e: SerializationException) {
+            Log.v(TAG, e.toString())
+            GeocodingResponse.Failure.GeneralError("The answer from the address service could not be read")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // For example a JsonConvertException: an odd answer is a failure on the screen, not a crash
             Log.v(TAG, e.toString())
             GeocodingResponse.Failure.GeneralError("The answer from the address service could not be read")
         }

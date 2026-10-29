@@ -19,12 +19,14 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.IOException
 
 // The external HTTP API of the app: Open-Meteo, called with the Ktor client (no SDK, no API key).
-class KtorWeatherService : WeatherService {
+// The client can be passed in, so the tests can give it a fake engine instead of the network.
+class KtorWeatherService(private val client: HttpClient = createClient()) : WeatherService {
 
     companion object {
         private const val BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -32,33 +34,33 @@ class KtorWeatherService : WeatherService {
         private const val USER_AGENT = "SpotCast/1.0"
         private const val TAG = "WEATHER SERVICE"
         private const val FORECAST_DAYS = 7
-    }
 
-    private val client = HttpClient(Android) {
-        // Makes the client throw ResponseException on 4xx and 5xx answers
-        expectSuccess = true
+        private fun createClient() = HttpClient(Android) {
+            // Makes the client throw ResponseException on 4xx and 5xx answers
+            expectSuccess = true
 
-        engine {
-            connectTimeout = 10_000
-            socketTimeout = 10_000
-        }
-        install(Logging) {
-            logger = object : Logger {
-                override fun log(message: String) {
-                    Log.v(TAG, message)
-                }
+            engine {
+                connectTimeout = 10_000
+                socketTimeout = 10_000
             }
-            level = LogLevel.INFO
-        }
-        install(ContentNegotiation) {
-            json(Json {
-                isLenient = true
-                ignoreUnknownKeys = true
-            })
-        }
-        install(DefaultRequest) {
-            header(HttpHeaders.ContentType, ContentType.Application.Json)
-            header(HttpHeaders.UserAgent, USER_AGENT)
+            install(Logging) {
+                logger = object : Logger {
+                    override fun log(message: String) {
+                        Log.v(TAG, message)
+                    }
+                }
+                level = LogLevel.INFO
+            }
+            install(ContentNegotiation) {
+                json(Json {
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+            install(DefaultRequest) {
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header(HttpHeaders.UserAgent, USER_AGENT)
+            }
         }
     }
 
@@ -98,6 +100,14 @@ class KtorWeatherService : WeatherService {
         } catch (e: SerializationException) {
             Log.v(TAG, e.toString())
             WeatherResponse.Failure.GeneralError("The answer from the weather service could not be read")
+        } catch (e: CancellationException) {
+            // A cancelled screen must stop its work, so this is not turned into a failure
+            throw e
+        } catch (e: Exception) {
+            // For example a JsonConvertException or a date that cannot be parsed. An odd answer from the
+            // service has to show as a failure on the screen, not crash the app inside viewModelScope.
+            Log.v(TAG, e.toString())
+            WeatherResponse.Failure.GeneralError("The answer from the weather service could not be read")
         }
     }
 
@@ -119,6 +129,11 @@ class KtorWeatherService : WeatherService {
         Log.v(TAG, e.toString())
         emptyMap()
     } catch (e: SerializationException) {
+        Log.v(TAG, e.toString())
+        emptyMap()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
         Log.v(TAG, e.toString())
         emptyMap()
     }
