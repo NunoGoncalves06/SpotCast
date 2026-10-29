@@ -7,15 +7,23 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -23,6 +31,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -30,6 +39,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.swmad.spotcast.domain.Verdict
+import kotlinx.coroutines.delay
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -66,6 +76,7 @@ private const val SOURCE_ID = "spots"
 private const val PIN_LAYER = "spot-pins"
 private const val SINGLE_PIN_ZOOM = 14.0
 private const val MAX_FIT_ZOOM = 13.5
+private const val STYLE_TIMEOUT_MS = 8_000L
 private const val GROUP_RADIUS_M = 150_000.0
 
 // Where the map starts when there is no spot (Aarhus)
@@ -125,6 +136,10 @@ fun SpotMap(
     var style by remember { mutableStateOf<Style?>(null) }
     // The camera fits the pins once, after that the user is in control
     var placed by remember { mutableStateOf(false) }
+    // The style (the map itself) has not arrived, for example without a connection and without a cache
+    var loadFailed by remember { mutableStateOf(false) }
+    // Counts the tries, so the waiting time starts again after "Try again"
+    var attempt by remember { mutableIntStateOf(0) }
 
     val mapView = remember {
         MapLibre.getInstance(context)
@@ -132,10 +147,12 @@ fun SpotMap(
         val options = MapLibreMapOptions.createFromAttributes(context).textureMode(true)
         MapView(context, options).apply {
             getMapAsync { loaded ->
+                // The order matters: setAllGesturesEnabled(true) would switch rotate and tilt back on,
+                // and without a compass there is no way back to north.
+                loaded.uiSettings.setAllGesturesEnabled(interactive)
                 loaded.uiSettings.isRotateGesturesEnabled = false
                 loaded.uiSettings.isTiltGesturesEnabled = false
                 loaded.uiSettings.isCompassEnabled = false
-                loaded.uiSettings.setAllGesturesEnabled(interactive)
                 loaded.cameraPosition = CameraPosition.Builder().target(DEFAULT_CENTER).zoom(10.0).build()
                 fun pinAt(point: LatLng): String? {
                     val screen = loaded.projection.toScreenLocation(point)
@@ -152,15 +169,23 @@ fun SpotMap(
                     currentOnPinLongClick(id)
                     true
                 }
-                loaded.setStyle(Style.Builder().fromUri(STYLE_URL)) { ready ->
-                    addPinImages(ready, context)
-                    ready.addSource(GeoJsonSource(SOURCE_ID))
-                    ready.addLayer(pinLayer())
+                loadStyle(loaded, context) { ready ->
                     style = ready
+                    loadFailed = false
                 }
                 map = loaded
             }
+            // Reports a style that cannot be read. A style that cannot be downloaded is not reported:
+            // MapLibre keeps retrying it, which is why the timer below exists.
+            addOnDidFailLoadingMapListener { if (style == null) loadFailed = true }
         }
+    }
+
+    // A map without a style is blank. After a few seconds say why, and take the message away if the style arrives later.
+    LaunchedEffect(map, attempt) {
+        if (map == null) return@LaunchedEffect
+        delay(STYLE_TIMEOUT_MS)
+        if (style == null) loadFailed = true
     }
 
     LaunchedEffect(style, dark) {
@@ -221,6 +246,37 @@ fun SpotMap(
 
     Box(modifier = modifier) {
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
+        if (loadFailed) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "The map could not be loaded. Check the connection.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    TextButton(onClick = {
+                        loadFailed = false
+                        attempt++
+                        // getMapAsync answers at once when the map is there, and later when it is not yet
+                        mapView.getMapAsync { loaded ->
+                            loadStyle(loaded, context) { ready -> style = ready; loadFailed = false }
+                        }
+                    }) {
+                        Text("Try again")
+                    }
+                }
+            }
+        }
         if (!interactive) {
             // An empty pointerInput on top takes the touches before the map does
             Box(
@@ -229,6 +285,15 @@ fun SpotMap(
                     .pointerInput(Unit) {}
             )
         }
+    }
+}
+
+private fun loadStyle(map: MapLibreMap, context: Context, onReady: (Style) -> Unit) {
+    map.setStyle(Style.Builder().fromUri(STYLE_URL)) { ready ->
+        addPinImages(ready, context)
+        ready.addSource(GeoJsonSource(SOURCE_ID))
+        ready.addLayer(pinLayer())
+        onReady(ready)
     }
 }
 
