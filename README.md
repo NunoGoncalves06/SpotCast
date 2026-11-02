@@ -1,12 +1,10 @@
 # SpotCast
 
-SpotCast tells you where to go today. Every spot you save gets a **Go**, **Maybe** or **Skip** for a beach day,
-surfing, hiking, photos and a picnic, worked out from the forecast of that exact place. The app opens on a map
-where each pin has the colour of today's answer. Tap a pin for the reason, a better activity for that spot, and the
-best day of the week.
+An Android app for Mobile Application Development at Aarhus University. Save outdoor spots and get a Go, Maybe or Skip for each activity from that spot's forecast, with unit tests for the rules and the API clients.
 
-It is an Android app in Kotlin and Jetpack Compose, made for the course SWMAD-01 Mobile Application Development
-(Aarhus University). Package name: `com.swmad.spotcast`.
+It is written in Kotlin and Jetpack Compose. Package name: `com.swmad.spotcast`.
+
+Part of my portfolio: [nunogoncalves06.github.io](https://nunogoncalves06.github.io).
 
 <p align="center">
   <img src="docs/previews/demo.gif" width="300" alt="SpotCast in use: the Today map, a spot's report and its best day, adding a spot by address, deleting a spot, and the dark theme">
