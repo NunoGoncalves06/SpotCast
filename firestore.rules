@@ -19,11 +19,49 @@ service cloud.firestore {
         && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
-    // Each user owns the spots below users/{their uid} and nothing else. Everything not matched is denied.
-    // There is no update rule on purpose: a saved spot cannot be edited in the app, only deleted.
+    // One condition of an own activity (ActivityFS.kt): the two numbers split the weather values into three
+    // ranges, and the three marks say how each range counts. low and high are the limits of the condition in
+    // domain/CustomActivity.kt.
+    function isValidCriterion(c, low, high) {
+      return c is map
+        && c.keys().hasOnly(['firstChange', 'secondChange', 'marks'])
+        && c.keys().hasAll(['firstChange', 'secondChange', 'marks'])
+        && c.firstChange is number && c.secondChange is number
+        && c.firstChange >= low && c.secondChange <= high && c.firstChange < c.secondChange
+        && c.marks is list && c.marks.size() == 3
+        && c.marks.hasOnly(['GOOD', 'OK', 'NO']);
+    }
+
+    // An activity the user made. The name limit is MAX_ACTIVITY_NAME_LENGTH. The limit of 10 activities
+    // is kept by the app: rules cannot count documents.
+    function isValidActivity(data) {
+      return data.keys().hasOnly(['name', 'icon', 'waterOnly', 'criteria', 'createdAt'])
+        && data.keys().hasAll(['name', 'icon', 'waterOnly', 'criteria'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 40
+        && data.icon in ['FOOTBALL', 'BASKETBALL', 'TENNIS', 'BIKE', 'RUN', 'SAIL', 'SWIM', 'YOGA']
+        && data.waterOnly is bool
+        && data.criteria is map
+        && data.criteria.keys().hasOnly(['wind', 'rain', 'sun', 'temperature', 'waves'])
+        && data.criteria.keys().hasAll(['wind', 'rain', 'sun', 'temperature', 'waves'])
+        && isValidCriterion(data.criteria.wind, 0, 80)
+        && isValidCriterion(data.criteria.rain, 0, 100)
+        && isValidCriterion(data.criteria.sun, 0, 100)
+        && isValidCriterion(data.criteria.temperature, -10, 40)
+        && isValidCriterion(data.criteria.waves, 0, 4)
+        && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+    }
+
+    // Each user owns the spots and the activities below users/{their uid} and nothing else.
+    // Everything not matched is denied. There is no update rule for spots on purpose: a saved spot
+    // cannot be edited in the app, only deleted. An activity of your own can be edited.
     match /users/{userId}/spots/{spotId} {
       allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) && isValidSpot(request.resource.data);
+    }
+
+    match /users/{userId}/activities/{activityId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidActivity(request.resource.data);
     }
   }
 }

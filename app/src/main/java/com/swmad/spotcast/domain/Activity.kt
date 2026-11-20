@@ -6,37 +6,59 @@ import kotlin.math.roundToInt
 // Ordered from worst to best, so maxBy picks the best verdict
 enum class Verdict { SKIP, MAYBE, GO }
 
+// Anything a spot can be rated for: one of the five built-in activities or an activity the user made.
+sealed interface ActivityKind {
+    val id: String
+    val label: String
+    // "surfing", "a beach day": for sentences like "a Go for surfing"
+    val purpose: String
+    val suggestion: String
+    // true when only spots by the water can be a Go, because the marine model snaps inland points to the coast
+    val needsWater: Boolean
+
+    fun title(verdict: Verdict): String
+}
+
 // The things a person can plan for a day. Every spot is rated for every activity.
 enum class Activity(
-    val label: String,
+    override val label: String,
     val goTitle: String,
     val maybeTitle: String,
     val skipTitle: String,
-    val suggestion: String
-) {
+    override val suggestion: String
+) : ActivityKind {
     BEACH("Beach day", "Great beach day", "Beach day, with a layer", "Not a beach day", "Great for a beach day"),
     SURF("Surf", "Go surfing", "Small waves to surf", "Not a surf day", "Great for surfing"),
     HIKE("Hike", "Go for a hike", "Hike with a jacket", "Not a hiking day", "Great for a hike"),
     PHOTOS("Photos", "Great light for photos", "Soft light for photos", "Not a photo day", "Great for photos"),
     PICNIC("Picnic", "Picnic weather", "A picnic, if you wrap up", "Not a picnic day", "Great for a picnic");
 
-    // "surfing", "a beach day": for sentences like "a Go for surfing"
-    val purpose: String get() = suggestion.removePrefix("Great for ")
+    override val id: String get() = name
 
-    fun title(verdict: Verdict): String = when (verdict) {
+    override val purpose: String get() = suggestion.removePrefix("Great for ")
+
+    override val needsWater: Boolean get() = this == BEACH || this == SURF
+
+    override fun title(verdict: Verdict): String = when (verdict) {
         Verdict.GO -> goTitle
         Verdict.MAYBE -> maybeTitle
         Verdict.SKIP -> skipTitle
     }
 }
 
-data class Rating(val activity: Activity, val verdict: Verdict, val reason: String) {
+data class Rating(val activity: ActivityKind, val verdict: Verdict, val reason: String) {
     val title: String get() = activity.title(verdict)
 }
 
-// Fixed rules, the same for every user. nearWater is true for beach spots: only those
-// can be a beach or surf day, because the marine model snaps inland points to the coast.
-fun rate(activity: Activity, day: DailyForecast, nearWater: Boolean): Rating {
+// The built-in rules are fixed and the same for every user. An own activity is rated by the
+// ranges its owner chose (CustomActivity.kt). nearWater is true for beach spots: only those
+// can be a beach or surf day.
+fun rate(activity: ActivityKind, day: DailyForecast, nearWater: Boolean): Rating = when (activity) {
+    is CustomActivity -> rateCustom(activity, day, nearWater)
+    is Activity -> rateBuiltIn(activity, day, nearWater)
+}
+
+private fun rateBuiltIn(activity: Activity, day: DailyForecast, nearWater: Boolean): Rating {
     val temp = day.maxTemperature ?: 0.0
     val rain = day.precipitationProbability ?: 0
     val wind = day.maxWindSpeed ?: 0.0
@@ -95,14 +117,21 @@ fun rate(activity: Activity, day: DailyForecast, nearWater: Boolean): Rating {
     }
 }
 
-fun rateAll(day: DailyForecast, nearWater: Boolean): List<Rating> =
-    Activity.entries.map { rate(it, day, nearWater) }
+fun rateAll(
+    day: DailyForecast,
+    nearWater: Boolean,
+    activities: List<ActivityKind> = Activity.entries
+): List<Rating> = activities.map { rate(it, day, nearWater) }
 
 // The activity that suits this day best. Ties go to the first activity in the bar.
-// Beach and surf are left out inland, so a bad day names a real reason and not "no water".
-fun bestRating(day: DailyForecast, nearWater: Boolean): Rating =
-    rateAll(day, nearWater)
-        .filter { nearWater || (it.activity != Activity.BEACH && it.activity != Activity.SURF) }
+// Activities that need water are left out inland, so a bad day names a real reason and not "no water".
+fun bestRating(
+    day: DailyForecast,
+    nearWater: Boolean,
+    activities: List<ActivityKind> = Activity.entries
+): Rating =
+    rateAll(day, nearWater, activities)
+        .filter { nearWater || !it.activity.needsWater }
         .maxBy { it.verdict }
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm")

@@ -1,6 +1,9 @@
 package com.swmad.spotcast.ui.spots
 
+import com.swmad.spotcast.domain.Activity
 import com.swmad.spotcast.domain.AuthResult
+import com.swmad.spotcast.domain.CustomActivity
+import com.swmad.spotcast.domain.MAX_CUSTOM_ACTIVITIES
 import com.swmad.spotcast.domain.CurrentWeather
 import com.swmad.spotcast.domain.Email
 import com.swmad.spotcast.domain.NewSpot
@@ -73,8 +76,124 @@ class SpotsViewModelTest {
     private fun viewModel(
         spots: FakeSpots,
         weather: FakeWeather = FakeWeather(sunny),
-        auth: AuthService = FakeAuth()
-    ) = SpotsViewModel(spots, auth, weather)
+        auth: AuthService = FakeAuth(),
+        activities: FakeActivities = FakeActivities()
+    ) = SpotsViewModel(spots, auth, weather, activities)
+
+    private fun football(id: String) = CustomActivity(id = id, label = "Football $id")
+
+    @Test
+    fun activitiesOfYourOwnComeAfterTheBuiltInOnes() {
+        val vm = viewModel(FakeSpots(emptyList()), activities = FakeActivities(listOf(football("a"), football("b"))))
+
+        assertEquals(Activity.entries + listOf(football("a"), football("b")), vm.activities)
+    }
+
+    @Test
+    fun aDeletedSelectedActivityFallsBackToBestToday() {
+        val fake = FakeActivities(listOf(football("a")))
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        vm.selectActivity(vm.customActivities.first())
+
+        fake.activities.value = emptyList()
+
+        assertNull(vm.activity)
+    }
+
+    @Test
+    fun aSelectedBuiltInActivityStaysWhenTheListChanges() {
+        val fake = FakeActivities(listOf(football("a")))
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        vm.selectActivity(Activity.SURF)
+
+        fake.activities.value = emptyList()
+
+        assertEquals(Activity.SURF, vm.activity)
+    }
+
+    @Test
+    fun anEditedSelectedActivityIsReplacedByTheNewVersion() {
+        val fake = FakeActivities(listOf(football("a")))
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        vm.selectActivity(vm.customActivities.first())
+
+        vm.saveActivity(football("a").copy(label = "Five a side"), onDone = {})
+
+        assertEquals("Five a side", vm.activity?.label)
+    }
+
+    @Test
+    fun savingANewActivityAddsItAndReportsDone() {
+        val fake = FakeActivities()
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        var done = false
+
+        vm.saveActivity(CustomActivity(label = "Padel"), onDone = { done = true })
+
+        assertTrue(done)
+        assertEquals(listOf("Padel"), vm.customActivities.map { it.label })
+        assertNull(vm.activityError)
+    }
+
+    @Test
+    fun anEleventhActivityIsRefused() {
+        val ten = (1..MAX_CUSTOM_ACTIVITIES).map { football("a$it") }
+        val vm = viewModel(FakeSpots(emptyList()), activities = FakeActivities(ten))
+        var done = false
+
+        vm.saveActivity(CustomActivity(label = "One too many"), onDone = { done = true })
+
+        assertTrue(!done)
+        assertEquals(MAX_CUSTOM_ACTIVITIES, vm.customActivities.size)
+        assertTrue(vm.activityError!!.contains("up to $MAX_CUSTOM_ACTIVITIES"))
+    }
+
+    @Test
+    fun aNewActivityIsRefusedBeforeTheListHasLoaded() {
+        // Without the list the limit of 10 cannot be checked
+        val fake = FakeActivities(answers = false)
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        var done = false
+
+        vm.saveActivity(CustomActivity(label = "Padel"), onDone = { done = true })
+
+        assertTrue(!done)
+        assertTrue(!vm.activitiesReady)
+        assertTrue(vm.activityError!!.contains("not loaded"))
+        assertTrue(fake.activities.value.isEmpty())
+    }
+
+    @Test
+    fun theListIsReadyAfterTheFirstAnswer() {
+        val vm = viewModel(FakeSpots(emptyList()), activities = FakeActivities())
+
+        assertTrue(vm.activitiesReady)
+    }
+
+    @Test
+    fun aFailedSaveShowsTheErrorAndDoesNotReportDone() {
+        val fake = FakeActivities().apply { failure = RuntimeException("denied") }
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        var done = false
+
+        vm.saveActivity(CustomActivity(label = "Padel"), onDone = { done = true })
+
+        assertTrue(!done)
+        assertEquals("denied", vm.activityError)
+        assertTrue(!vm.isSavingActivity)
+    }
+
+    @Test
+    fun aDeleteRemovesTheActivity() {
+        val fake = FakeActivities(listOf(football("a"), football("b")))
+        val vm = viewModel(FakeSpots(emptyList()), activities = fake)
+        var done = false
+
+        vm.deleteActivity("a", onDone = { done = true })
+
+        assertTrue(done)
+        assertEquals(listOf("b"), vm.customActivities.map { it.id })
+    }
 
     @Test
     fun aFailedDeleteKeepsTheListAndReportsSeparately() {

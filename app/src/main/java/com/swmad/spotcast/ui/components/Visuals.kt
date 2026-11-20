@@ -20,12 +20,23 @@ import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Deck
+import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Pool
+import androidx.compose.material.icons.filled.Sailing
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.SportsBasketball
+import androidx.compose.material.icons.filled.SportsSoccer
+import androidx.compose.material.icons.filled.SportsTennis
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.swmad.spotcast.domain.Activity
+import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityKind
+import com.swmad.spotcast.domain.CustomActivity
 import com.swmad.spotcast.domain.SpotCategory
 import com.swmad.spotcast.domain.Verdict
 import com.swmad.spotcast.ui.theme.GoTint
@@ -46,13 +57,25 @@ import com.swmad.spotcast.ui.theme.VerdictNone
 import com.swmad.spotcast.ui.theme.VerdictSkip
 
 // null is the "Best today" chip
-fun activityIcon(activity: Activity?): ImageVector = when (activity) {
+fun activityIcon(activity: ActivityKind?): ImageVector = when (activity) {
     null -> Icons.Filled.AutoAwesome
     Activity.BEACH -> Icons.Filled.BeachAccess
     Activity.SURF -> Icons.Filled.Surfing
     Activity.HIKE -> Icons.Filled.Hiking
     Activity.PHOTOS -> Icons.Filled.PhotoCamera
     Activity.PICNIC -> Icons.Filled.Deck
+    is CustomActivity -> customActivityIcon(activity.icon)
+}
+
+fun customActivityIcon(icon: ActivityIcon): ImageVector = when (icon) {
+    ActivityIcon.FOOTBALL -> Icons.Filled.SportsSoccer
+    ActivityIcon.BASKETBALL -> Icons.Filled.SportsBasketball
+    ActivityIcon.TENNIS -> Icons.Filled.SportsTennis
+    ActivityIcon.BIKE -> Icons.Filled.DirectionsBike
+    ActivityIcon.RUN -> Icons.Filled.DirectionsRun
+    ActivityIcon.SAIL -> Icons.Filled.Sailing
+    ActivityIcon.SWIM -> Icons.Filled.Pool
+    ActivityIcon.YOGA -> Icons.Filled.SelfImprovement
 }
 
 fun categoryIcon(category: SpotCategory): ImageVector = when (category) {

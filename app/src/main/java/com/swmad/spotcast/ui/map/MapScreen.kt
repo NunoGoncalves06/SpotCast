@@ -27,6 +27,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,7 +94,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.swmad.spotcast.domain.Activity
+import com.swmad.spotcast.domain.ActivityKind
+import com.swmad.spotcast.domain.CustomActivity
+import com.swmad.spotcast.domain.MAX_CUSTOM_ACTIVITIES
 import com.swmad.spotcast.domain.DailyForecast
 import com.swmad.spotcast.domain.Rating
 import com.swmad.spotcast.domain.Spot
@@ -107,8 +118,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 // The rating that colours a pin: the chosen activity, or the spot's best one for "Best today"
-fun ratingFor(spot: Spot, day: DailyForecast, activity: Activity?): Rating =
-    if (activity == null) bestRating(day, spot.isByTheWater) else rate(activity, day, spot.isByTheWater)
+fun ratingFor(spot: Spot, day: DailyForecast, activity: ActivityKind?, activities: List<ActivityKind>): Rating =
+    if (activity == null) bestRating(day, spot.isByTheWater, activities) else rate(activity, day, spot.isByTheWater)
 
 private fun today(state: WeatherUiState?): DailyForecast? =
     (state as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
@@ -122,6 +133,8 @@ fun MapScreen(
     onOpenSpot: (String) -> Unit,
     onAddSpot: () -> Unit,
     onAddSpotAt: (latitude: Double, longitude: Double) -> Unit,
+    onNewActivity: () -> Unit,
+    onEditActivity: (String) -> Unit,
     viewModel: SpotsViewModel = viewModel()
 ) {
     val spots = viewModel.spots
@@ -223,7 +236,7 @@ fun MapScreen(
             latitude = spot.latitude,
             longitude = spot.longitude,
             name = spot.name,
-            verdict = today(viewModel.forecasts[spot.id])?.let { ratingFor(spot, it, activity).verdict }
+            verdict = today(viewModel.forecasts[spot.id])?.let { ratingFor(spot, it, activity, viewModel.activities).verdict }
         )
     }
     // The tapped point is drawn as a grey pin until the user adds the spot or taps elsewhere
@@ -271,7 +284,24 @@ fun MapScreen(
                 .padding(top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ActivityBar(selected = activity, onSelect = { viewModel.selectActivity(it) })
+            ActivityBar(
+                activities = viewModel.activities,
+                selected = activity,
+                canAdd = viewModel.canAddActivity,
+                onSelect = { viewModel.selectActivity(it) },
+                onNew = {
+                    if (viewModel.canAddActivity) {
+                        onNewActivity()
+                    } else {
+                        scope.launch {
+                            snackbarHost.showSnackbar(
+                                "You can have up to $MAX_CUSTOM_ACTIVITIES activities of your own. Delete one to add another."
+                            )
+                        }
+                    }
+                },
+                onEdit = { onEditActivity(it.id) }
+            )
             if (spots.isNotEmpty()) {
                 val states = spots.map { viewModel.forecasts[it.id] }
                 val summary = mapSummary(
@@ -366,6 +396,7 @@ fun MapScreen(
                 spot = spot,
                 state = viewModel.forecasts[spot.id],
                 activity = activity,
+                activities = viewModel.activities,
                 onSwitch = { viewModel.selectActivity(it) },
                 onOpenDetails = { onOpenSpot(spot.id) },
                 onRetry = { viewModel.retryForecast(spot) },
@@ -397,6 +428,25 @@ fun MapScreen(
     }
 }
 
+// A long press on something that is also clickable. The chip handles the touch itself, so this listens before
+// the chip does (Initial pass) and swallows the release of a long press, so the chip is not selected as well.
+// A drag that scrolls the bar cancels it.
+private fun Modifier.onLongPress(onLongPress: () -> Unit): Modifier = pointerInput(onLongPress) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val timedOut = try {
+            withTimeout(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }
+            false
+        } catch (e: PointerEventTimeoutCancellationException) {
+            true
+        }
+        if (timedOut) {
+            onLongPress()
+            waitForUpOrCancellation(PointerEventPass.Initial)?.consume()
+        }
+    }
+}
+
 // The small pop up over a tapped point of the map
 @Composable
 private fun AddHerePopup(onAdd: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
@@ -420,14 +470,21 @@ private fun AddHerePopup(onAdd: () -> Unit, onDismiss: () -> Unit, modifier: Mod
 }
 
 @Composable
-private fun ActivityBar(selected: Activity?, onSelect: (Activity?) -> Unit) {
+private fun ActivityBar(
+    activities: List<ActivityKind>,
+    selected: ActivityKind?,
+    canAdd: Boolean,
+    onSelect: (ActivityKind?) -> Unit,
+    onNew: () -> Unit,
+    onEdit: (CustomActivity) -> Unit
+) {
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp,
         modifier = Modifier.padding(horizontal = 12.dp)
     ) {
-        val options = listOf<Activity?>(null) + Activity.entries
+        val options = listOf<ActivityKind?>(null) + activities
         val listState = rememberLazyListState()
         // A switch from the sheet can pick a chip that is scrolled away, so bring it into view
         LaunchedEffect(selected) {
@@ -438,9 +495,16 @@ private fun ActivityBar(selected: Activity?, onSelect: (Activity?) -> Unit) {
             contentPadding = PaddingValues(horizontal = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(options) { option ->
+            items(options, key = { it?.id ?: "best" }) { option ->
                 val isSelected = option == selected
+                // An own activity opens its editor on a long press. The built-in ones cannot be changed.
+                val editable = (option as? CustomActivity)?.let { custom ->
+                    Modifier
+                        .onLongPress { onEdit(custom) }
+                        .semantics { onLongClick(label = "Edit ${custom.label}") { onEdit(custom); true } }
+                } ?: Modifier
                 FilterChip(
+                    modifier = editable,
                     selected = isSelected,
                     onClick = { onSelect(option) },
                     label = { Text(option?.label ?: "Best today") },
@@ -458,6 +522,26 @@ private fun ActivityBar(selected: Activity?, onSelect: (Activity?) -> Unit) {
                         enabled = true,
                         selected = isSelected,
                         borderColor = Color.Transparent
+                    )
+                )
+            }
+            item(key = "new") {
+                FilterChip(
+                    selected = false,
+                    onClick = onNew,
+                    label = { Text(if (canAdd) "New activity" else "Limit reached") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    },
+                    shape = CircleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        labelColor = MaterialTheme.colorScheme.primary,
+                        iconColor = MaterialTheme.colorScheme.primary
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = false,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 )
             }
@@ -527,8 +611,9 @@ private fun FirstSpotCard(message: String?, onAddSpot: () -> Unit, modifier: Mod
 private fun SpotSheet(
     spot: Spot,
     state: WeatherUiState?,
-    activity: Activity?,
-    onSwitch: (Activity) -> Unit,
+    activity: ActivityKind?,
+    activities: List<ActivityKind>,
+    onSwitch: (ActivityKind) -> Unit,
     onOpenDetails: () -> Unit,
     onRetry: () -> Unit,
     onClose: () -> Unit,
@@ -549,7 +634,7 @@ private fun SpotSheet(
                     if (day == null) {
                         SheetHeader(spot, null, "No forecast for today", onClose)
                     } else {
-                        Report(spot, day, days, activity, onSwitch, onClose)
+                        Report(spot, day, days, activity, activities, onSwitch, onClose)
                     }
                 }
 
@@ -626,12 +711,13 @@ private fun Report(
     spot: Spot,
     day: DailyForecast,
     days: List<DailyForecast>,
-    activity: Activity?,
-    onSwitch: (Activity) -> Unit,
+    activity: ActivityKind?,
+    activities: List<ActivityKind>,
+    onSwitch: (ActivityKind) -> Unit,
     onClose: () -> Unit
 ) {
-    val rating = ratingFor(spot, day, activity)
-    val all = rateAll(day, spot.isByTheWater)
+    val rating = ratingFor(spot, day, activity, activities)
+    val all = rateAll(day, spot.isByTheWater, activities)
     SheetHeader(spot, rating, rating.title, onClose)
 
     Column(modifier = Modifier.padding(end = 10.dp)) {
@@ -719,14 +805,18 @@ private fun Suggestion(better: Rating, onSwitch: () -> Unit) {
 
 // One icon per activity, coloured by today's verdict. Tapping one switches the whole map to it.
 @Composable
-private fun TodayRow(all: List<Rating>, current: Activity, onSwitch: (Activity) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun TodayRow(all: List<Rating>, current: ActivityKind, onSwitch: (ActivityKind) -> Unit) {
+    // Five icons share the width. With activities of your own the row scrolls, so no icon gets too small.
+    val scrolls = all.size > 5
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier
+    ) {
         all.forEach { rating ->
             val tint = verdictTint(rating.verdict)
             val isCurrent = rating.activity == current
             Box(
-                modifier = Modifier
-                    .weight(1f)
+                modifier = (if (scrolls) Modifier.width(62.dp) else Modifier.weight(1f))
                     .height(48.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(tint.container)
@@ -756,7 +846,7 @@ private fun TodayRow(all: List<Rating>, current: Activity, onSwitch: (Activity) 
 
 // The next 7 days for one activity, so a Skip today can point to a better day
 @Composable
-private fun WeekStrip(spot: Spot, days: List<DailyForecast>, activity: Activity) {
+private fun WeekStrip(spot: Spot, days: List<DailyForecast>, activity: ActivityKind) {
     val ratings = days.map { rate(activity, it, spot.isByTheWater) }
     val bestDay = days.indices.firstOrNull { ratings[it].verdict == Verdict.GO }
     val note = when (bestDay) {

@@ -69,7 +69,8 @@ gradlew :app:testDebugUnitTest
 ```
 
 The unit tests cover the Go, Maybe and Skip rules, the two Ktor services (with fake server answers, including broken
-ones), the summary line of the map and the view model of the spots.
+ones), the summary line of the map, the view models of the spots and of the activity editor, the ratings of the
+activities of your own and their mapping to Firestore.
 
 ## How it decides
 
@@ -96,6 +97,7 @@ the wave model returns data for any point and would otherwise rate a city park.
 | Tap an empty place on the map to add a spot there (pop-up, then the form with the place filled in) | `ui/map/MapScreen.kt`, `ui/spots/AddSpotScreen.kt` |
 | Save a place you are not at (address or coordinates, confirmed on a map) | `ui/spots/AddSpotScreen.kt` |
 | Delete a spot, always with a confirmation | `ui/components/DeleteSpotDialog.kt` |
+| Activities of your own: ranges and marks per condition, edit, delete, up to 10 | `ui/activities/`, `domain/CustomActivity.kt`, `integration/firestore/FireStoreActivityService.kt` |
 | Light, dark or system theme | `ui/theme/ThemeViewModel.kt`, `ui/profile/ProfileScreen.kt` |
 | Security rules | `firestore.rules` |
 
@@ -104,6 +106,9 @@ the wave model returns data for any point and would otherwise rate a city park.
 - **Firestore:** `users/{uid}/spots/{spotId}` with `name`, `category`, `note`, `location` (geopoint) and `createdAt`
   (server timestamp). The rules let a user read and delete only their own spots, and accept a new spot only with
   these five fields, a name of up to 100 characters and a note of up to 1000.
+- **Activities of your own:** `users/{uid}/activities/{activityId}` with `name` (up to 40 characters), `icon`,
+  `waterOnly` and `criteria`: for wind, rain, sun, temperature and waves two numbers that split the weather into three
+  ranges, and a mark (Good, OK or No) for each range. The rules check all of it. The limit of 10 is kept by the app.
 - **Forecast:** `GET https://api.open-meteo.com/v1/forecast` (temperature, rain chance, wind, cloud cover, sunset,
   seven days) and, for beach spots, `GET https://marine-api.open-meteo.com/v1/marine` (`daily=wave_height_max`).
 - **Address search:** `GET https://nominatim.openstreetmap.org/search` with `format=jsonv2` and `limit=1`. The service

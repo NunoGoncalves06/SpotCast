@@ -1,6 +1,6 @@
 package com.swmad.spotcast.ui.map
 
-import com.swmad.spotcast.domain.Activity
+import com.swmad.spotcast.domain.ActivityKind
 import com.swmad.spotcast.domain.Verdict
 
 // What the pill under the activity bar says. dot is the colour of its dot, null is grey.
@@ -9,7 +9,7 @@ data class MapSummary(val text: String, val checking: Boolean, val dot: Verdict?
 
 // total spots, of which goes are a Go. loading still wait for their forecast and failed did not get one.
 // A forecast that failed must not look like one that is still loading, or the pill would spin forever offline.
-fun mapSummary(total: Int, goes: Int, loading: Int, failed: Int, activity: Activity?): MapSummary {
+fun mapSummary(total: Int, goes: Int, loading: Int, failed: Int, activity: ActivityKind?): MapSummary {
     if (loading > 0) {
         return MapSummary("Checking the forecast for ${spots(total)}", checking = true, dot = null)
     }

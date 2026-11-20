@@ -46,6 +46,8 @@ import com.swmad.spotcast.domain.Spot
 import com.swmad.spotcast.domain.Weather
 import com.swmad.spotcast.domain.weatherDescription
 import com.swmad.spotcast.domain.Verdict
+import com.swmad.spotcast.domain.Activity
+import com.swmad.spotcast.domain.ActivityKind
 import com.swmad.spotcast.domain.bestRating
 import com.swmad.spotcast.domain.rateAll
 import com.swmad.spotcast.ui.components.DeleteSpotDialog
@@ -71,6 +73,8 @@ fun DetailsScreen(
     spotId: String,
     onBack: () -> Unit,
     onDeleted: () -> Unit,
+    // The built-in activities and the ones the user made, from the shared list of the Today screen
+    activities: List<ActivityKind> = Activity.entries,
     viewModel: DetailsViewModel = viewModel()
 ) {
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
@@ -130,8 +134,8 @@ fun DetailsScreen(
                     SpotInfo(spot)
                     val today = (viewModel.weather as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
                     // The pin has the colour of the spot's best verdict for today, as on the Today map
-                    SpotLocation(spot, verdict = today?.let { bestRating(it, spot.isByTheWater).verdict })
-                    today?.let { TodayReport(spot, it) }
+                    SpotLocation(spot, verdict = today?.let { bestRating(it, spot.isByTheWater, activities).verdict })
+                    today?.let { TodayReport(spot, it, activities) }
                     WeatherSection(
                         state = viewModel.weather,
                         onRefresh = { viewModel.refreshWeather() }
@@ -193,14 +197,14 @@ private fun SpotLocation(spot: Spot, verdict: Verdict?, modifier: Modifier = Mod
 
 // The full Go or Skip report: every activity, with the reason for its verdict
 @Composable
-private fun TodayReport(spot: Spot, day: DailyForecast, modifier: Modifier = Modifier) {
+private fun TodayReport(spot: Spot, day: DailyForecast, activities: List<ActivityKind>, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(text = "Today here", style = MaterialTheme.typography.titleMedium)
-            rateAll(day, spot.isByTheWater).forEach { rating ->
+            rateAll(day, spot.isByTheWater, activities).forEach { rating ->
                 val tint = verdictTint(rating.verdict)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(

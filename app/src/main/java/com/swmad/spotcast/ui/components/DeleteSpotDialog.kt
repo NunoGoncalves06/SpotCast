@@ -18,12 +18,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.swmad.spotcast.domain.CustomActivity
 import com.swmad.spotcast.domain.Spot
 import com.swmad.spotcast.domain.Verdict
 
 // The one confirmation used everywhere a spot can be deleted: the map, the list and the details
 @Composable
 fun DeleteSpotDialog(spot: Spot, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ConfirmDeleteDialog(
+        title = "Delete ${spot.name}?",
+        text = "The spot leaves your map and your list, with its forecast. This cannot be undone.",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
+}
+
+// The same dialog for an activity of your own
+@Composable
+fun DeleteActivityDialog(activity: CustomActivity, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ConfirmDeleteDialog(
+        title = "Delete ${activity.label}?",
+        text = "The activity leaves your activity bar and the report of every spot. This cannot be undone.",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+private fun ConfirmDeleteDialog(title: String, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val tint = verdictTint(Verdict.SKIP)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -40,10 +62,10 @@ fun DeleteSpotDialog(spot: Spot, onConfirm: () -> Unit, onDismiss: () -> Unit) {
                 Icon(Icons.Outlined.Delete, contentDescription = null, tint = tint.content)
             }
         },
-        title = { Text("Delete ${spot.name}?") },
+        title = { Text(title) },
         text = {
             Text(
-                text = "The spot leaves your map and your list, with its forecast. This cannot be undone.",
+                text = text,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },

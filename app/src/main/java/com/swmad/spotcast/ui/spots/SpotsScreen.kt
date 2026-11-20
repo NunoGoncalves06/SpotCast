@@ -97,7 +97,7 @@ fun SpotsScreen(
                             ?.weather?.daily?.firstOrNull()
                         SpotCard(
                             spot = spot,
-                            rating = day?.let { ratingFor(spot, it, null) },
+                            rating = day?.let { ratingFor(spot, it, null, viewModel.activities) },
                             onClick = { onOpenSpot(spot.id) },
                             onLongClick = { toDeleteId = spot.id }
                         )

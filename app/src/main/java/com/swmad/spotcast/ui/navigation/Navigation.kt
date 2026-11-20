@@ -28,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.swmad.spotcast.ui.activities.ActivityEditorScreen
 import com.swmad.spotcast.ui.auth.AuthViewModel
 import com.swmad.spotcast.ui.auth.SignInScreen
 import com.swmad.spotcast.ui.auth.SignUpScreen
@@ -51,10 +52,17 @@ object Routes {
     const val MAP = "map"
     const val PROFILE = "profile"
 
+    // The screen that makes or edits an activity of your own. Without an id it makes a new one.
+    const val ACTIVITY = "activity"
+    const val ACTIVITY_ID = "id"
+    const val ACTIVITY_PATTERN = "$ACTIVITY?$ACTIVITY_ID={$ACTIVITY_ID}"
+
     const val SPOT_ID = "spotId"
     const val DETAILS = "details/{$SPOT_ID}"
 
     fun details(spotId: String) = "details/$spotId"
+
+    fun editActivity(activityId: String) = "$ACTIVITY?$ACTIVITY_ID=$activityId"
 
     fun addSpotAt(latitude: Double, longitude: Double) = "$ADD_SPOT?$LATITUDE=$latitude&$LONGITUDE=$longitude"
 }
@@ -179,7 +187,8 @@ fun Navigation(
                 DetailsScreen(
                     spotId = spotId,
                     onBack = { controller.popBackStack() },
-                    onDeleted = { controller.popBackStack() }
+                    onDeleted = { controller.popBackStack() },
+                    activities = sharedSpotsViewModel(controller, entry).activities
                 )
             }
             composable(route = Routes.MAP) { entry ->
@@ -187,7 +196,24 @@ fun Navigation(
                     onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) },
                     onAddSpot = { controller.navigate(Routes.ADD_SPOT) },
                     onAddSpotAt = { latitude, longitude -> controller.navigate(Routes.addSpotAt(latitude, longitude)) },
+                    onNewActivity = { controller.navigate(Routes.ACTIVITY) },
+                    onEditActivity = { activityId -> controller.navigate(Routes.editActivity(activityId)) },
                     viewModel = sharedSpotsViewModel(controller, entry)
+                )
+            }
+            composable(
+                route = Routes.ACTIVITY_PATTERN,
+                arguments = listOf(
+                    navArgument(Routes.ACTIVITY_ID) { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { entry ->
+                ActivityEditorScreen(
+                    activityId = entry.arguments?.getString(Routes.ACTIVITY_ID),
+                    // Leaves the editor only if it is still there: a save or delete that finishes after the user
+                    // went back must not close the screen below it
+                    onBack = { controller.popBackStack() },
+                    onFinished = { controller.popBackStack(Routes.ACTIVITY_PATTERN, inclusive = true) },
+                    spotsViewModel = sharedSpotsViewModel(controller, entry)
                 )
             }
             composable(route = Routes.PROFILE) { entry ->
