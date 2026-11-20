@@ -52,6 +52,7 @@ class FireStoreActivityService : ActivityService {
                 "name" to fs.name,
                 "icon" to fs.icon,
                 "waterOnly" to fs.waterOnly,
+                "place" to fs.place,
                 "criteria" to fs.criteria
             )
         ).await()

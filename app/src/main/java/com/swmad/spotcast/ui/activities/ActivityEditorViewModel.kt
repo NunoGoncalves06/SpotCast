@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityPlace
 import com.swmad.spotcast.domain.Condition
 import com.swmad.spotcast.domain.Criterion
 import com.swmad.spotcast.domain.CustomActivity
@@ -12,6 +13,7 @@ import com.swmad.spotcast.domain.DailyForecast
 import com.swmad.spotcast.domain.MAX_ACTIVITY_NAME_LENGTH
 import com.swmad.spotcast.domain.Mark
 import com.swmad.spotcast.domain.Rating
+import com.swmad.spotcast.domain.SpotCategory
 import com.swmad.spotcast.domain.rate
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -33,8 +35,10 @@ class ActivityEditorViewModel : ViewModel() {
     var icon by mutableStateOf(ActivityIcon.FOOTBALL)
         private set
 
-    var waterOnly by mutableStateOf(false)
+    var place by mutableStateOf(ActivityPlace.ANYWHERE)
         private set
+
+    val waterOnly: Boolean get() = place == ActivityPlace.WATER
 
     var criteria by mutableStateOf(Condition.entries.associateWith { it.defaultCriterion() })
         private set
@@ -60,7 +64,7 @@ class ActivityEditorViewModel : ViewModel() {
             activityId = existing.id
             name = existing.label
             icon = existing.icon
-            waterOnly = existing.waterOnly
+            place = existing.place
             criteria = Condition.entries.associateWith { existing.criteria[it] ?: it.defaultCriterion() }
         }
     }
@@ -73,8 +77,9 @@ class ActivityEditorViewModel : ViewModel() {
         icon = value
     }
 
-    fun changeWaterOnly(value: Boolean) {
-        waterOnly = value
+    // One kind of spot at most: choosing one replaces the other
+    fun choosePlace(value: ActivityPlace) {
+        place = value
     }
 
     // Good, then OK, then No, then Good again
@@ -116,13 +121,18 @@ class ActivityEditorViewModel : ViewModel() {
         id = activityId,
         label = name.trim(),
         icon = icon,
-        waterOnly = waterOnly,
+        place = place,
         criteria = criteria
     )
 
     // What the activity would say on the sample day, with the same rule the map uses
     val preview: Rating
-        get() = rate(build().copy(label = name.trim().ifEmpty { "this activity" }), sampleDay(), nearWater = waterOnly)
+        get() = rate(build().copy(label = name.trim().ifEmpty { "this activity" }), sampleDay(), category = when (place) {
+            ActivityPlace.WATER -> SpotCategory.BEACH
+            ActivityPlace.SPORTS -> SpotCategory.SPORTS
+            ActivityPlace.INDOORS -> SpotCategory.INDOORS
+            ActivityPlace.ANYWHERE -> SpotCategory.OTHER
+        })
 
     private fun sampleDay() = DailyForecast(
         date = LocalDate.now(),

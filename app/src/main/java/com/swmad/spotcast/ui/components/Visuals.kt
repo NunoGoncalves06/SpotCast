@@ -7,7 +7,9 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BeachAccess
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dehaze
+import androidx.compose.material.icons.filled.Domain
 import androidx.compose.material.icons.filled.FilterDrama
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Hiking
 import androidx.compose.material.icons.filled.Landscape
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Surfing
 import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
@@ -59,7 +62,9 @@ import com.swmad.spotcast.ui.theme.VerdictSkip
 // null is the "Best today" chip
 fun activityIcon(activity: ActivityKind?): ImageVector = when (activity) {
     null -> Icons.Filled.AutoAwesome
+    Activity.FIELD_SPORTS -> Icons.Filled.Timer
     Activity.BEACH -> Icons.Filled.BeachAccess
+    Activity.GYM -> Icons.Filled.FitnessCenter
     Activity.SURF -> Icons.Filled.Surfing
     Activity.HIKE -> Icons.Filled.Hiking
     Activity.PHOTOS -> Icons.Filled.PhotoCamera
@@ -79,7 +84,9 @@ fun customActivityIcon(icon: ActivityIcon): ImageVector = when (icon) {
 }
 
 fun categoryIcon(category: SpotCategory): ImageVector = when (category) {
+    SpotCategory.SPORTS -> Icons.Filled.SportsSoccer
     SpotCategory.BEACH -> Icons.Filled.BeachAccess
+    SpotCategory.INDOORS -> Icons.Filled.Domain
     SpotCategory.TRAIL -> Icons.Filled.Terrain
     SpotCategory.VIEWPOINT -> Icons.Filled.Landscape
     SpotCategory.PARK -> Icons.Filled.Park

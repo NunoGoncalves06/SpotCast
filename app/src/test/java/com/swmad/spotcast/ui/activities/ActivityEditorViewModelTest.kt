@@ -1,6 +1,7 @@
 package com.swmad.spotcast.ui.activities
 
 import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityPlace
 import com.swmad.spotcast.domain.Condition
 import com.swmad.spotcast.domain.Criterion
 import com.swmad.spotcast.domain.CustomActivity
@@ -39,7 +40,7 @@ class ActivityEditorViewModelTest {
     fun anExistingActivityFillsTheForm() {
         val vm = ActivityEditorViewModel()
 
-        vm.start(CustomActivity(id = "x", label = "Sailing", icon = ActivityIcon.SAIL, waterOnly = true))
+        vm.start(CustomActivity(id = "x", label = "Sailing", icon = ActivityIcon.SAIL, place = ActivityPlace.WATER))
 
         assertFalse(vm.isNew)
         assertEquals("Sailing", vm.name)
@@ -61,9 +62,21 @@ class ActivityEditorViewModelTest {
         val vm = editor()
         assertFalse(Condition.WAVES in vm.conditions)
 
-        vm.changeWaterOnly(true)
+        vm.choosePlace(ActivityPlace.WATER)
 
         assertTrue(Condition.WAVES in vm.conditions)
+    }
+
+    @Test
+    fun anActivityIsForOneKindOfSpotAtMost() {
+        val vm = editor()
+
+        vm.choosePlace(ActivityPlace.WATER)
+        vm.choosePlace(ActivityPlace.INDOORS)
+
+        assertEquals(ActivityPlace.INDOORS, vm.place)
+        assertFalse(Condition.WAVES in vm.conditions)
+        assertEquals(ActivityPlace.INDOORS, vm.build().place)
     }
 
     @Test

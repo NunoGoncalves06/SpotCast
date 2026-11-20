@@ -4,8 +4,11 @@ package com.swmad.spotcast.domain
 const val MAX_NAME_LENGTH = 100
 const val MAX_NOTE_LENGTH = 1000
 
+// The order is the one of the chips and matches the activity bar: sports fields first, indoor centres after the beach
 enum class SpotCategory(val label: String) {
+    SPORTS("Sports"),
     BEACH("Beach"),
+    INDOORS("Indoors"),
     TRAIL("Trail"),
     VIEWPOINT("Viewpoint"),
     PARK("Park"),
@@ -22,7 +25,7 @@ data class Spot(
     val longitude: Double,
     val createdAt: Long
 ) {
-    // Only beach spots are rated for beach days and surfing
+    // Only beach spots get the marine forecast, and only they are rated for beach days and surfing
     val isByTheWater: Boolean get() = category == SpotCategory.BEACH
 }
 

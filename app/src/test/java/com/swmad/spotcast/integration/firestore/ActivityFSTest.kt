@@ -1,6 +1,7 @@
 package com.swmad.spotcast.integration.firestore
 
 import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityPlace
 import com.swmad.spotcast.domain.Condition
 import com.swmad.spotcast.domain.Criterion
 import com.swmad.spotcast.domain.CustomActivity
@@ -14,7 +15,7 @@ class ActivityFSTest {
     private val padel = CustomActivity(
         label = "Padel",
         icon = ActivityIcon.TENNIS,
-        waterOnly = false,
+        place = ActivityPlace.ANYWHERE,
         criteria = Condition.entries.associateWith { it.defaultCriterion() } +
             (Condition.WIND to Criterion(12.0, 25.0, listOf(Mark.GOOD, Mark.NO, Mark.NO)))
     )
@@ -26,6 +27,17 @@ class ActivityFSTest {
         val back = fs.toDomain()
 
         assertEquals(padel.copy(id = "abc", createdAt = back.createdAt), back)
+    }
+
+    @Test
+    fun theKindOfSpotSurvivesTheRoundTripAndAnOldDocumentStillMeansWater() {
+        val indoors = padel.copy(place = ActivityPlace.INDOORS).toFS().apply { id = "a" }
+        assertEquals(ActivityPlace.INDOORS, indoors.toDomain().place)
+        assertEquals(false, indoors.waterOnly)
+
+        // Written before the field place existed
+        val old = padel.toFS().apply { id = "b"; place = ""; waterOnly = true }
+        assertEquals(ActivityPlace.WATER, old.toDomain().place)
     }
 
     @Test

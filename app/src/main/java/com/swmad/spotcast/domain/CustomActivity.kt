@@ -93,17 +93,26 @@ enum class ActivityIcon(val label: String) {
     YOGA("Yoga")
 }
 
+// The kind of spot an own activity is for. Only a spot of that kind is rated for it, so there is only one choice.
+enum class ActivityPlace(val label: String) {
+    ANYWHERE("Anywhere"),
+    WATER("Only for spots by the water"),
+    SPORTS("Only for outdoor sports fields"),
+    INDOORS("Only for indoor centres")
+}
+
 // An activity made by the user, stored in their account. id is empty until it is saved.
 data class CustomActivity(
     override val id: String = "",
     override val label: String,
     val icon: ActivityIcon = ActivityIcon.FOOTBALL,
-    val waterOnly: Boolean = false,
+    val place: ActivityPlace = ActivityPlace.ANYWHERE,
     val criteria: Map<Condition, Criterion> = Condition.entries.associateWith { it.defaultCriterion() },
     val createdAt: Long = 0L
 ) : ActivityKind {
     override val purpose: String get() = label
     override val suggestion: String get() = "Great for $label"
+    val waterOnly: Boolean get() = place == ActivityPlace.WATER
     override val needsWater: Boolean get() = waterOnly
 
     override fun title(verdict: Verdict): String = when (verdict) {
@@ -123,7 +132,6 @@ internal fun rateCustom(activity: CustomActivity, day: DailyForecast, nearWater:
     fun rating(verdict: Verdict, reason: String) = Rating(activity, verdict, reason)
 
     if (day.weatherCode in 95..99) return rating(Verdict.SKIP, "Thunderstorms are expected.")
-    if (activity.waterOnly && !nearWater) return rating(Verdict.SKIP, "This spot is not by the water.")
 
     var worst = Verdict.GO
     var rated = 0

@@ -13,8 +13,8 @@ android {
         applicationId = "com.swmad.spotcast"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.0"
+        versionCode = 4
+        versionName = "2.1"
     }
 
     buildTypes {

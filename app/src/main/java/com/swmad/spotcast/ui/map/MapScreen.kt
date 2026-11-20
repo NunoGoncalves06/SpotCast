@@ -119,7 +119,7 @@ import kotlin.math.roundToInt
 
 // The rating that colours a pin: the chosen activity, or the spot's best one for "Best today"
 fun ratingFor(spot: Spot, day: DailyForecast, activity: ActivityKind?, activities: List<ActivityKind>): Rating =
-    if (activity == null) bestRating(day, spot.isByTheWater, activities) else rate(activity, day, spot.isByTheWater)
+    if (activity == null) bestRating(day, spot.category, activities) else rate(activity, day, spot.category)
 
 private fun today(state: WeatherUiState?): DailyForecast? =
     (state as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
@@ -717,7 +717,7 @@ private fun Report(
     onClose: () -> Unit
 ) {
     val rating = ratingFor(spot, day, activity, activities)
-    val all = rateAll(day, spot.isByTheWater, activities)
+    val all = rateAll(day, spot.category, activities)
     SheetHeader(spot, rating, rating.title, onClose)
 
     Column(modifier = Modifier.padding(end = 10.dp)) {
@@ -806,17 +806,17 @@ private fun Suggestion(better: Rating, onSwitch: () -> Unit) {
 // One icon per activity, coloured by today's verdict. Tapping one switches the whole map to it.
 @Composable
 private fun TodayRow(all: List<Rating>, current: ActivityKind, onSwitch: (ActivityKind) -> Unit) {
-    // Five icons share the width. With activities of your own the row scrolls, so no icon gets too small.
-    val scrolls = all.size > 5
+    // Seven built-in activities and more of your own: the icons keep a fixed width and the row scrolls
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier
+        modifier = Modifier.horizontalScroll(rememberScrollState())
     ) {
         all.forEach { rating ->
             val tint = verdictTint(rating.verdict)
             val isCurrent = rating.activity == current
             Box(
-                modifier = (if (scrolls) Modifier.width(62.dp) else Modifier.weight(1f))
+                modifier = Modifier
+                    .width(62.dp)
                     .height(48.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(tint.container)
@@ -847,13 +847,13 @@ private fun TodayRow(all: List<Rating>, current: ActivityKind, onSwitch: (Activi
 // The next 7 days for one activity, so a Skip today can point to a better day
 @Composable
 private fun WeekStrip(spot: Spot, days: List<DailyForecast>, activity: ActivityKind) {
-    val ratings = days.map { rate(activity, it, spot.isByTheWater) }
+    val ratings = days.map { rate(activity, it, spot.category) }
     val bestDay = days.indices.firstOrNull { ratings[it].verdict == Verdict.GO }
     val note = when (bestDay) {
         null -> "No Go day for ${activity.purpose} this week"
         0 -> "Today is a Go for ${activity.purpose}"
         else -> "Best day for ${activity.purpose}: " +
-            days[bestDay].date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+            days[bestDay].date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     }
     Text(
         text = note,
@@ -865,7 +865,7 @@ private fun WeekStrip(spot: Spot, days: List<DailyForecast>, activity: ActivityK
         days.forEachIndexed { index, day ->
             val tint = verdictTint(ratings[index].verdict)
             Text(
-                text = day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                text = day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.ENGLISH),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (index == bestDay) FontWeight.Bold else FontWeight.Normal,
                 color = tint.content,

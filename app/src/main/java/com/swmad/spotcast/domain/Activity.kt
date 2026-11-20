@@ -6,7 +6,7 @@ import kotlin.math.roundToInt
 // Ordered from worst to best, so maxBy picks the best verdict
 enum class Verdict { SKIP, MAYBE, GO }
 
-// Anything a spot can be rated for: one of the five built-in activities or an activity the user made.
+// Anything a spot can be rated for: one of the built-in activities or an activity the user made.
 sealed interface ActivityKind {
     val id: String
     val label: String
@@ -27,7 +27,9 @@ enum class Activity(
     val skipTitle: String,
     override val suggestion: String
 ) : ActivityKind {
+    FIELD_SPORTS("Field sports", "Great day to play", "Play, if you don't mind the weather", "Not a day to play", "Great for field sports"),
     BEACH("Beach day", "Great beach day", "Beach day, with a layer", "Not a beach day", "Great for a beach day"),
+    GYM("Gym", "Go to the gym", "Gym day", "No gym here", "Great for the gym"),
     SURF("Surf", "Go surfing", "Small waves to surf", "Not a surf day", "Great for surfing"),
     HIKE("Hike", "Go for a hike", "Hike with a jacket", "Not a hiking day", "Great for a hike"),
     PHOTOS("Photos", "Great light for photos", "Soft light for photos", "Not a photo day", "Great for photos"),
@@ -51,24 +53,72 @@ data class Rating(val activity: ActivityKind, val verdict: Verdict, val reason: 
 }
 
 // The built-in rules are fixed and the same for every user. An own activity is rated by the
-// ranges its owner chose (CustomActivity.kt). nearWater is true for beach spots: only those
-// can be a beach or surf day.
-fun rate(activity: ActivityKind, day: DailyForecast, nearWater: Boolean): Rating = when (activity) {
-    is CustomActivity -> rateCustom(activity, day, nearWater)
-    is Activity -> rateBuiltIn(activity, day, nearWater)
+// ranges its owner chose (CustomActivity.kt). Some activities need a certain kind of spot (see placeProblem):
+// a beach for the sea, a sports ground for field sports, an indoor centre for the gym.
+fun rate(activity: ActivityKind, day: DailyForecast, category: SpotCategory): Rating {
+    placeProblem(activity, category)?.let { return Rating(activity, Verdict.SKIP, it) }
+    // Indoors the weather never decides, so an indoor activity of your own has no conditions either
+    if (activity is CustomActivity && activity.place == ActivityPlace.INDOORS) return indoorRating(activity, day)
+    return when (activity) {
+        is CustomActivity -> rateCustom(activity, day, category == SpotCategory.BEACH)
+        is Activity -> rateBuiltIn(activity, day)
+    }
 }
 
-private fun rateBuiltIn(activity: Activity, day: DailyForecast, nearWater: Boolean): Rating {
+// Why this kind of spot cannot be rated for this activity at all, or null when it can.
+// Indoor centres are only for the gym and everything else needs the outdoors.
+internal fun placeProblem(activity: ActivityKind, category: SpotCategory): String? {
+    val needed = when {
+        activity == Activity.GYM || (activity is CustomActivity && activity.place == ActivityPlace.INDOORS) -> SpotCategory.INDOORS
+        activity == Activity.FIELD_SPORTS || (activity is CustomActivity && activity.place == ActivityPlace.SPORTS) -> SpotCategory.SPORTS
+        activity.needsWater -> SpotCategory.BEACH
+        else -> null
+    }
+    return when {
+        needed == category -> null
+        category == SpotCategory.INDOORS -> "This spot is indoors."
+        needed == SpotCategory.INDOORS -> "This spot is not an indoor centre."
+        needed == SpotCategory.SPORTS -> "This is not an outdoor sports field."
+        needed == SpotCategory.BEACH -> "This spot is not by the water."
+        else -> null
+    }
+}
+
+// Indoors the weather never rules an activity out. A bad day only gets a warning for the way there.
+private fun indoorRating(activity: ActivityKind, day: DailyForecast): Rating {
+    val rain = day.precipitationProbability ?: 0
+    val wind = day.maxWindSpeed ?: 0.0
+    val warning = when {
+        day.weatherCode in 95..99 -> "thunderstorms are expected"
+        rain >= 70 -> "heavy rain is likely ($rain%)"
+        wind >= 50 -> "the wind is strong, up to ${kmh(wind)}"
+        else -> null
+    }
+    val reason = if (warning == null) "Indoors, the weather does not matter." else "Indoors, but $warning. Take care getting there."
+    return Rating(activity, Verdict.GO, reason)
+}
+
+private fun rateBuiltIn(activity: Activity, day: DailyForecast): Rating {
     val temp = day.maxTemperature ?: 0.0
     val rain = day.precipitationProbability ?: 0
     val wind = day.maxWindSpeed ?: 0.0
     fun rating(verdict: Verdict, reason: String) = Rating(activity, verdict, reason)
 
+    if (activity == Activity.GYM) return indoorRating(activity, day)
     if (day.weatherCode in 95..99) return rating(Verdict.SKIP, "Thunderstorms are expected.")
 
     return when (activity) {
+        Activity.GYM -> error("handled above")
+
+        Activity.FIELD_SPORTS -> when {
+            rain < 30 && wind < 30 && temp in 8.0..27.0 ->
+                rating(Verdict.GO, "Dry, ${deg(temp)} and ${kmh(wind)} wind.")
+            rain < 60 && wind < 45 && temp in 2.0..32.0 ->
+                rating(Verdict.MAYBE, "${deg(temp)}, $rain% chance of rain and ${kmh(wind)} wind.")
+            else -> rating(Verdict.SKIP, mainProblem(temp, 2.0, rain, 60, wind, 45.0))
+        }
+
         Activity.BEACH -> when {
-            !nearWater -> rating(Verdict.SKIP, "This spot is not by the water.")
             temp >= 22 && rain < 30 && wind < 30 ->
                 rating(Verdict.GO, "Warm at ${deg(temp)} with little chance of rain.")
             temp >= 17 && rain < 50 && wind < 40 ->
@@ -79,7 +129,7 @@ private fun rateBuiltIn(activity: Activity, day: DailyForecast, nearWater: Boole
         Activity.SURF -> {
             val waves = day.waveHeight
             when {
-                !nearWater || waves == null -> rating(Verdict.SKIP, "No waves here, this spot is not by the sea.")
+                waves == null -> rating(Verdict.SKIP, "No waves here, this spot is not by the sea.")
                 waves >= 0.8 && wind < 40 ->
                     rating(Verdict.GO, "${metres(waves)} waves and ${kmh(wind)} wind.")
                 waves >= 0.5 && wind < 50 -> rating(Verdict.MAYBE, "Small ${metres(waves)} waves.")
@@ -119,19 +169,19 @@ private fun rateBuiltIn(activity: Activity, day: DailyForecast, nearWater: Boole
 
 fun rateAll(
     day: DailyForecast,
-    nearWater: Boolean,
+    category: SpotCategory,
     activities: List<ActivityKind> = Activity.entries
-): List<Rating> = activities.map { rate(it, day, nearWater) }
+): List<Rating> = activities.map { rate(it, day, category) }
 
 // The activity that suits this day best. Ties go to the first activity in the bar.
-// Activities that need water are left out inland, so a bad day names a real reason and not "no water".
+// Activities this kind of spot cannot be rated for are left out, so a bad day names a real reason and not "no water".
 fun bestRating(
     day: DailyForecast,
-    nearWater: Boolean,
+    category: SpotCategory,
     activities: List<ActivityKind> = Activity.entries
 ): Rating =
-    rateAll(day, nearWater, activities)
-        .filter { nearWater || !it.activity.needsWater }
+    rateAll(day, category, activities)
+        .filter { placeProblem(it.activity, category) == null }
         .maxBy { it.verdict }
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm")

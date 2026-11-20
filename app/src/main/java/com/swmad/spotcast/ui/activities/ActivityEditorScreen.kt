@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -57,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityPlace
 import com.swmad.spotcast.domain.Condition
 import com.swmad.spotcast.domain.Criterion
 import com.swmad.spotcast.domain.Mark
@@ -156,15 +159,41 @@ fun ActivityEditorScreen(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Only for spots by the water",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(checked = editor.waterOnly, onCheckedChange = editor::changeWaterOnly)
+                // Only one of these can be on: an activity is for one kind of spot
+                Text("Where it can happen", style = MaterialTheme.typography.labelLarge)
+                Column {
+                    ActivityPlace.entries.filter { it != ActivityPlace.ANYWHERE }.forEach { option ->
+                        val selected = editor.place == option
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .toggleable(
+                                    value = selected,
+                                    role = Role.Switch,
+                                    onValueChange = { on -> editor.choosePlace(if (on) option else ActivityPlace.ANYWHERE) }
+                                )
+                        ) {
+                            Text(
+                                text = option.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(checked = selected, onCheckedChange = null)
+                        }
+                    }
                 }
 
+                if (editor.place == ActivityPlace.INDOORS) {
+                    // The conditions are kept (the database needs them) but they do not count indoors
+                    Text(
+                        text = "Indoors the weather does not matter, so there are no conditions to set. " +
+                            "You only get a warning when the weather is very bad.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
                 Text("How each condition counts", style = MaterialTheme.typography.labelLarge)
                 editor.conditions.forEach { condition ->
                     ConditionCard(
@@ -189,6 +218,7 @@ fun ActivityEditorScreen(
                     )
                 }
                 VerdictTile(editor.preview)
+                }
 
                 spotsViewModel.activityError?.let { message ->
                     Text(text = message, color = MaterialTheme.colorScheme.error)

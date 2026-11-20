@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.swmad.spotcast.domain.DailyForecast
@@ -134,7 +135,7 @@ fun DetailsScreen(
                     SpotInfo(spot)
                     val today = (viewModel.weather as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
                     // The pin has the colour of the spot's best verdict for today, as on the Today map
-                    SpotLocation(spot, verdict = today?.let { bestRating(it, spot.isByTheWater, activities).verdict })
+                    SpotLocation(spot, verdict = today?.let { bestRating(it, spot.category, activities).verdict })
                     today?.let { TodayReport(spot, it, activities) }
                     WeatherSection(
                         state = viewModel.weather,
@@ -163,7 +164,7 @@ private fun SpotInfo(spot: Spot, modifier: Modifier = Modifier) {
         Instant.ofEpochMilli(spot.createdAt)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
-            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.ENGLISH))
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -204,7 +205,7 @@ private fun TodayReport(spot: Spot, day: DailyForecast, activities: List<Activit
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(text = "Today here", style = MaterialTheme.typography.titleMedium)
-            rateAll(day, spot.isByTheWater, activities).forEach { rating ->
+            rateAll(day, spot.category, activities).forEach { rating ->
                 val tint = verdictTint(rating.verdict)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -301,7 +302,7 @@ private fun WeatherContent(weather: Weather) {
 @Composable
 private fun ForecastRow(day: DailyForecast, modifier: Modifier = Modifier) {
     val dayName = remember(day.date) {
-        val weekday = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+        val weekday = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
         "$weekday ${day.date.dayOfMonth}"
     }
     Row(
@@ -310,7 +311,8 @@ private fun ForecastRow(day: DailyForecast, modifier: Modifier = Modifier) {
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = dayName, modifier = Modifier.width(64.dp))
+        // Every column has its own fixed width, so a long value in one row never moves the others
+        Text(text = dayName, maxLines = 1, softWrap = false, modifier = Modifier.width(76.dp))
         Icon(
             imageVector = weatherIcon(day.weatherCode),
             contentDescription = null,
@@ -322,14 +324,22 @@ private fun ForecastRow(day: DailyForecast, modifier: Modifier = Modifier) {
         Text(
             text = weatherDescription(day.weatherCode),
             style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
             modifier = Modifier.weight(1f)
         )
         Text(
             text = day.precipitationProbability?.let { "$it %" } ?: "",
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.width(44.dp)
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(48.dp)
         )
-        Text(text = "${formatTemperature(day.minTemperature)} / ${formatTemperature(day.maxTemperature)}")
+        Text(
+            text = "${formatTemperature(day.minTemperature)} / ${formatTemperature(day.maxTemperature)}",
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(88.dp)
+        )
     }
 }
 

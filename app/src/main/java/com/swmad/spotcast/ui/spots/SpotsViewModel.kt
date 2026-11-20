@@ -52,7 +52,7 @@ class SpotsViewModel(
     var forecasts by mutableStateOf<Map<String, WeatherUiState>>(emptyMap())
         private set
 
-    // The activities the user made. The five built-in ones are always there and cannot be changed.
+    // The activities the user made. The built-in ones are always there and cannot be changed.
     var customActivities by mutableStateOf<List<CustomActivity>>(emptyList())
         private set
 

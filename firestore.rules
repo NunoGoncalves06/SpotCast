@@ -13,7 +13,7 @@ service cloud.firestore {
       return data.keys().hasOnly(['name', 'category', 'note', 'location', 'createdAt'])
         && data.keys().hasAll(['name', 'category', 'location'])
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.category in ['BEACH', 'TRAIL', 'VIEWPOINT', 'PARK', 'OTHER']
+        && data.category in ['SPORTS', 'BEACH', 'INDOORS', 'TRAIL', 'VIEWPOINT', 'PARK', 'OTHER']
         && data.note is string && data.note.size() <= 1000
         && data.location is latlng
         && (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
@@ -35,11 +35,12 @@ service cloud.firestore {
     // An activity the user made. The name limit is MAX_ACTIVITY_NAME_LENGTH. The limit of 10 activities
     // is kept by the app: rules cannot count documents.
     function isValidActivity(data) {
-      return data.keys().hasOnly(['name', 'icon', 'waterOnly', 'criteria', 'createdAt'])
+      return data.keys().hasOnly(['name', 'icon', 'waterOnly', 'place', 'criteria', 'createdAt'])
         && data.keys().hasAll(['name', 'icon', 'waterOnly', 'criteria'])
         && data.name is string && data.name.size() > 0 && data.name.size() <= 40
         && data.icon in ['FOOTBALL', 'BASKETBALL', 'TENNIS', 'BIKE', 'RUN', 'SAIL', 'SWIM', 'YOGA']
         && data.waterOnly is bool
+        && (!data.keys().hasAny(['place']) || data.place in ['ANYWHERE', 'WATER', 'SPORTS', 'INDOORS'])
         && data.criteria is map
         && data.criteria.keys().hasOnly(['wind', 'rain', 'sun', 'temperature', 'waves'])
         && data.criteria.keys().hasAll(['wind', 'rain', 'sun', 'temperature', 'waves'])

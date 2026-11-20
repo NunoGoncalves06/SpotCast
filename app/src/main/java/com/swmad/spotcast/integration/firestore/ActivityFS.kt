@@ -4,6 +4,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp
 import com.swmad.spotcast.domain.ActivityIcon
+import com.swmad.spotcast.domain.ActivityPlace
 import com.swmad.spotcast.domain.Condition
 import com.swmad.spotcast.domain.Criterion
 import com.swmad.spotcast.domain.CustomActivity
@@ -20,7 +21,9 @@ data class ActivityFS(
     @DocumentId var id: String? = null,
     var name: String = "",
     var icon: String = ActivityIcon.FOOTBALL.name,
+    // waterOnly is the old form of place = WATER, still written so that older documents and rules keep working
     var waterOnly: Boolean = false,
+    var place: String = "",
     // keyed by the lower case name of the condition: wind, rain, sun, temperature, waves
     var criteria: Map<String, CriterionFS> = emptyMap(),
     // Set by the server when the document is created
@@ -35,7 +38,8 @@ fun ActivityFS.toDomain(): CustomActivity {
         id = activityId,
         label = name,
         icon = ActivityIcon.entries.firstOrNull { it.name == icon } ?: ActivityIcon.FOOTBALL,
-        waterOnly = waterOnly,
+        place = ActivityPlace.entries.firstOrNull { it.name == place }
+            ?: if (waterOnly) ActivityPlace.WATER else ActivityPlace.ANYWHERE,
         // A condition that is missing or damaged falls back to its default, so one bad field never hides the activity
         criteria = Condition.entries.associateWith { condition ->
             criteria[conditionKey(condition)]?.toDomain(condition) ?: condition.defaultCriterion()
@@ -54,6 +58,7 @@ fun CustomActivity.toFS(): ActivityFS = ActivityFS(
     name = label.trim(),
     icon = icon.name,
     waterOnly = waterOnly,
+    place = place.name,
     criteria = criteria.entries.associate { (condition, criterion) ->
         conditionKey(condition) to CriterionFS(criterion.first, criterion.second, criterion.marks.map { it.name })
     }

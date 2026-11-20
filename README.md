@@ -1,6 +1,13 @@
 # SpotCast
 
+<<<<<<< Updated upstream
 An Android app for Mobile Application Development at Aarhus University. Save outdoor spots and get a Go, Maybe or Skip for each activity from that spot's forecast, with unit tests for the rules and the API clients.
+=======
+SpotCast tells you where to go today. Every spot you save gets a **Go**, **Maybe** or **Skip** for a beach day,
+surfing, hiking, photos, a picnic, field sports and the gym, worked out from the forecast of that exact place. The app opens on a map
+where each pin has the colour of today's answer. Tap a pin for the reason, a better activity for that spot, and the
+best day of the week.
+>>>>>>> Stashed changes
 
 It is written in Kotlin and Jetpack Compose. Package name: `com.swmad.spotcast`.
 
@@ -76,8 +83,11 @@ activities of your own and their mapping to Firestore.
 
 The rules are fixed and the same for everybody; they are in [`domain/Activity.kt`](app/src/main/java/com/swmad/spotcast/domain/Activity.kt).
 For example, surfing is a Go with waves of 0.8 m or more and wind under 40 km/h, and photos are a Go when broken
-clouds can light up the sunset. A Skip always says why. Only beach spots are rated for beach days and surfing, because
-the wave model returns data for any point and would otherwise rate a city park.
+clouds can light up the sunset, and field sports are a Go when it is dry, calm and between 8 and 27 °C. A Skip always
+says why. Some activities need a certain kind of spot: only beach spots are rated for beach days and surfing, because
+the wave model returns data for any point and would otherwise rate a city park, field sports need a Sports spot, and
+the gym needs an Indoors spot, where the weather never rules it out and a storm or strong wind only adds a warning for
+the way there. Every other activity is a Skip at an Indoors spot.
 
 ## What is in the project
 
@@ -107,7 +117,7 @@ the wave model returns data for any point and would otherwise rate a city park.
   (server timestamp). The rules let a user read and delete only their own spots, and accept a new spot only with
   these five fields, a name of up to 100 characters and a note of up to 1000.
 - **Activities of your own:** `users/{uid}/activities/{activityId}` with `name` (up to 40 characters), `icon`,
-  `waterOnly` and `criteria`: for wind, rain, sun, temperature and waves two numbers that split the weather into three
+  `place` (anywhere, water, sports or indoors; `waterOnly` is kept for older documents) and `criteria`: for wind, rain, sun, temperature and waves two numbers that split the weather into three
   ranges, and a mark (Good, OK or No) for each range. The rules check all of it. The limit of 10 is kept by the app.
 - **Forecast:** `GET https://api.open-meteo.com/v1/forecast` (temperature, rain chance, wind, cloud cover, sunset,
   seven days) and, for beach spots, `GET https://marine-api.open-meteo.com/v1/marine` (`daily=wave_height_max`).
