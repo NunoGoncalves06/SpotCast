@@ -51,6 +51,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.BackgroundLayer
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
@@ -70,10 +71,18 @@ data class MapPin(
     val verdict: Verdict? = null
 )
 
+// Where the phone is, drawn as the blue dot of the "My location" button
+data class UserPosition(val latitude: Double, val longitude: Double)
+
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no account
 private const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 private const val SOURCE_ID = "spots"
 private const val PIN_LAYER = "spot-pins"
+private const val USER_SOURCE_ID = "user-position"
+private const val USER_HALO_LAYER = "user-halo"
+private const val USER_DOT_LAYER = "user-dot"
+private const val USER_ZOOM = 15.0
+private const val USER_BLUE = 0xFF1A73E8.toInt()
 private const val SINGLE_PIN_ZOOM = 14.0
 private const val MAX_FIT_ZOOM = 13.5
 private const val STYLE_TIMEOUT_MS = 8_000L
@@ -123,7 +132,11 @@ fun SpotMap(
     bottomInset: Dp = 0.dp,
     onPinClick: (String) -> Unit = {},
     onPinLongClick: (String) -> Unit = {},
-    onMapClick: () -> Unit = {}
+    // The point of the map that was tapped, when it is not a pin
+    onMapClick: (latitude: Double, longitude: Double) -> Unit = { _, _ -> },
+    userPosition: UserPosition? = null,
+    // Every change moves the camera to the user position and zooms in
+    recenterToken: Int = 0
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -160,7 +173,7 @@ fun SpotMap(
                 }
                 loaded.addOnMapClickListener { point ->
                     val id = pinAt(point)
-                    if (id != null) currentOnPinClick(id) else currentOnMapClick()
+                    if (id != null) currentOnPinClick(id) else currentOnMapClick(point.latitude, point.longitude)
                     true
                 }
                 // A long press on a pin asks to delete the spot; elsewhere the map keeps the gesture
@@ -195,6 +208,30 @@ fun SpotMap(
     LaunchedEffect(style, pins, selectedId) {
         val ready = style ?: return@LaunchedEffect
         ready.getSourceAs<GeoJsonSource>(SOURCE_ID)?.setGeoJson(featureCollection(pins, selectedId))
+    }
+
+    LaunchedEffect(style, userPosition) {
+        val ready = style ?: return@LaunchedEffect
+        // one point for the dot, or an empty collection for none
+        val features = listOfNotNull(userPosition?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)) })
+        ready.getSourceAs<GeoJsonSource>(USER_SOURCE_ID)?.setGeoJson(FeatureCollection.fromFeatures(features))
+    }
+
+    LaunchedEffect(map, recenterToken) {
+        val loaded = map ?: return@LaunchedEffect
+        val position = userPosition ?: return@LaunchedEffect
+        if (recenterToken == 0) return@LaunchedEffect
+        loaded.animateCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder()
+                    .target(LatLng(position.latitude, position.longitude))
+                    .zoom(maxOf(loaded.cameraPosition.zoom, USER_ZOOM))
+                    // no sheet is taken into account: the dot goes to the middle of the map
+                    .padding(0.0, 0.0, 0.0, 0.0)
+                    .build()
+            ),
+            600
+        )
     }
 
     LaunchedEffect(map, pins) {
@@ -292,6 +329,10 @@ private fun loadStyle(map: MapLibreMap, context: Context, onReady: (Style) -> Un
     map.setStyle(Style.Builder().fromUri(STYLE_URL)) { ready ->
         addPinImages(ready, context)
         ready.addSource(GeoJsonSource(SOURCE_ID))
+        ready.addSource(GeoJsonSource(USER_SOURCE_ID))
+        // The blue dot lies under the pins
+        ready.addLayer(userHaloLayer())
+        ready.addLayer(userDotLayer())
         ready.addLayer(pinLayer())
         onReady(ready)
     }
@@ -326,6 +367,19 @@ private fun featureCollection(pins: List<MapPin>, selectedId: String?): FeatureC
             addBooleanProperty("selected", pin.id == selectedId)
         }
     })
+
+private fun userHaloLayer() = CircleLayer(USER_HALO_LAYER, USER_SOURCE_ID).withProperties(
+    PropertyFactory.circleColor(USER_BLUE),
+    PropertyFactory.circleOpacity(0.2f),
+    PropertyFactory.circleRadius(16f)
+)
+
+private fun userDotLayer() = CircleLayer(USER_DOT_LAYER, USER_SOURCE_ID).withProperties(
+    PropertyFactory.circleColor(USER_BLUE),
+    PropertyFactory.circleRadius(7f),
+    PropertyFactory.circleStrokeColor(android.graphics.Color.WHITE),
+    PropertyFactory.circleStrokeWidth(2.5f)
+)
 
 private fun pinLayer(): SymbolLayer {
     val selected = Expression.toBool(Expression.get("selected"))

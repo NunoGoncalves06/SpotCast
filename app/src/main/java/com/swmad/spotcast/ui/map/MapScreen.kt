@@ -1,6 +1,25 @@
 package com.swmad.spotcast.ui.map
 
 import androidx.activity.compose.BackHandler
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.google.android.gms.location.LocationServices
+import com.swmad.spotcast.integration.location.LOCATION_PERMISSIONS
+import com.swmad.spotcast.integration.location.LocationService
+import com.swmad.spotcast.integration.location.hasLocationPermission
+import com.swmad.spotcast.ui.components.UserPosition
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -94,11 +113,15 @@ fun ratingFor(spot: Spot, day: DailyForecast, activity: Activity?): Rating =
 private fun today(state: WeatherUiState?): DailyForecast? =
     (state as? WeatherUiState.Loaded)?.weather?.daily?.firstOrNull()
 
+private const val DRAFT_ID = "draft"
+private const val TAG = "MAP SCREEN"
+
 // The home screen: every spot on the map, coloured by whether today is a Go for the chosen activity
 @Composable
 fun MapScreen(
     onOpenSpot: (String) -> Unit,
     onAddSpot: () -> Unit,
+    onAddSpotAt: (latitude: Double, longitude: Double) -> Unit,
     viewModel: SpotsViewModel = viewModel()
 ) {
     val spots = viewModel.spots
@@ -110,6 +133,77 @@ fun MapScreen(
     var toDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
     val toDelete = spots.firstOrNull { it.id == toDeleteId }
     val snackbarHost = remember { SnackbarHostState() }
+    var firstCardHeight by remember { mutableStateOf(0.dp) }
+
+    // A point the user tapped on the empty map, waiting for "Add spot". NaN means no point.
+    var draftLatitude by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    var draftLongitude by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    val draft = if (draftLatitude.isNaN() || draftLongitude.isNaN()) null else draftLatitude to draftLongitude
+    fun clearDraft() {
+        draftLatitude = Double.NaN
+        draftLongitude = Double.NaN
+    }
+
+    // The "My location" button
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val locationService = remember { LocationService(LocationServices.getFusedLocationProviderClient(context)) }
+    val servicesOn by rememberLocationServicesOn()
+    var locating by remember { mutableStateOf(false) }
+    // Two doubles like the draft, so the blue dot survives a rotation. NaN means no position yet.
+    var myLatitude by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    var myLongitude by rememberSaveable { mutableDoubleStateOf(Double.NaN) }
+    val myPosition = if (myLatitude.isNaN() || myLongitude.isNaN()) null else UserPosition(myLatitude, myLongitude)
+    var recenterToken by remember { mutableIntStateOf(0) }
+
+    // A snackbar with a Settings button, for what only the phone's settings can fix
+    fun offerSettings(message: String, settings: Intent) {
+        scope.launch {
+            val result = snackbarHost.showSnackbar(
+                message = message,
+                actionLabel = "Settings",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) context.startActivity(settings)
+        }
+    }
+
+    fun showMyPosition() {
+        if (locating) return
+        scope.launch {
+            locating = true
+            val position = try {
+                locationService.getCurrentLocation()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.v(TAG, e.toString())
+                null
+            }
+            locating = false
+            if (position == null) {
+                snackbarHost.showSnackbar("The position could not be read")
+            } else {
+                myLatitude = position.latitude
+                myLongitude = position.longitude
+                recenterToken++
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { result: Map<String, Boolean> ->
+        if (result.values.any { it }) {
+            showMyPosition()
+        } else {
+            // After two refusals Android no longer asks, so the button would do nothing
+            offerSettings(
+                "Location permission is needed",
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            )
+        }
+    }
 
     // A failed delete is a message over the map. The list and the pins stay as they are.
     // The message is cleared after it was shown: clearing it first would restart this effect and cancel the snackbar.
@@ -121,6 +215,7 @@ fun MapScreen(
 
     // System Back closes the sheet before it leaves the screen
     BackHandler(enabled = selected != null) { viewModel.selectSpot(null) }
+    BackHandler(enabled = draft != null) { clearDraft() }
 
     val pins = spots.map { spot ->
         MapPin(
@@ -131,6 +226,9 @@ fun MapScreen(
             verdict = today(viewModel.forecasts[spot.id])?.let { ratingFor(spot, it, activity).verdict }
         )
     }
+    // The tapped point is drawn as a grey pin until the user adds the spot or taps elsewhere
+    val mapPins = pins + listOfNotNull(draft?.let { MapPin(DRAFT_ID, it.first, it.second, "New spot") })
+    val showFirstCard = !viewModel.isLoading && spots.isEmpty()
 
     Box(
         modifier = Modifier
@@ -138,12 +236,32 @@ fun MapScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         SpotMap(
-            pins = pins,
+            pins = mapPins,
             selectedId = selected?.id,
             bottomInset = sheetHeight,
-            onPinClick = { viewModel.selectSpot(it) },
+            onPinClick = { id ->
+                if (id == DRAFT_ID) {
+                    draft?.let { (latitude, longitude) ->
+                        clearDraft()
+                        onAddSpotAt(latitude, longitude)
+                    }
+                } else {
+                    clearDraft()
+                    viewModel.selectSpot(id)
+                }
+            },
             onPinLongClick = { id -> toDeleteId = id },
-            onMapClick = { viewModel.selectSpot(null) },
+            // An open sheet is closed by a tap on the map; with no sheet, the tap chooses a place for a new spot
+            onMapClick = { latitude, longitude ->
+                if (selected != null) {
+                    viewModel.selectSpot(null)
+                } else {
+                    draftLatitude = latitude
+                    draftLongitude = longitude
+                }
+            },
+            userPosition = myPosition,
+            recenterToken = recenterToken,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -172,21 +290,64 @@ fun MapScreen(
             }
         }
 
-        if (!viewModel.isLoading && spots.isEmpty()) {
+        if (showFirstCard) {
             FirstSpotCard(
                 message = viewModel.error,
                 onAddSpot = onAddSpot,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(12.dp)
+                    .onSizeChanged { firstCardHeight = with(density) { it.height.toDp() } + 12.dp }
             )
-        } else if (selected == null) {
-            ExtendedFloatingActionButton(
-                onClick = onAddSpot,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Add spot") },
+        }
+
+        // My location and Add spot, above the card or the sheet when there is one
+        val overlayBottom = when {
+            selected != null -> sheetHeight
+            showFirstCard -> firstCardHeight
+            else -> 0.dp
+        }
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp + overlayBottom)
+        ) {
+            MyLocationButton(
+                servicesOn = servicesOn,
+                locating = locating,
+                onClick = {
+                    when {
+                        !servicesOn -> offerSettings(
+                            "Location is turned off",
+                            Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                        )
+
+                        !hasLocationPermission(context) -> permissionLauncher.launch(LOCATION_PERMISSIONS)
+
+                        else -> showMyPosition()
+                    }
+                }
+            )
+            if (!showFirstCard && selected == null && draft == null) {
+                ExtendedFloatingActionButton(
+                    onClick = onAddSpot,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Add spot") }
+                )
+            }
+        }
+
+        if (draft != null && selected == null) {
+            AddHerePopup(
+                onAdd = {
+                    clearDraft()
+                    onAddSpotAt(draft.first, draft.second)
+                },
+                onDismiss = { clearDraft() },
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
+                    .align(Alignment.BottomCenter)
                     .padding(16.dp)
             )
         }
@@ -220,7 +381,7 @@ fun MapScreen(
             hostState = snackbarHost,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 96.dp)
+                .padding(bottom = 148.dp)
         )
     }
 
@@ -233,6 +394,28 @@ fun MapScreen(
             },
             onDismiss = { toDeleteId = null }
         )
+    }
+}
+
+// The small pop up over a tapped point of the map
+@Composable
+private fun AddHerePopup(onAdd: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        modifier = modifier
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp)) {
+            TextButton(onClick = onAdd) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Add spot")
+            }
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = "Cancel")
+            }
+        }
     }
 }
 

@@ -57,6 +57,8 @@ class AddSpotViewModel(
     var error by mutableStateOf<String?>(null)
         private set
 
+    private var mapChoiceApplied = false
+
     val hasPosition: Boolean
         get() = if (useCurrentLocation) location != null else pickedPlace != null
 
@@ -137,6 +139,14 @@ class AddSpotViewModel(
                 candidate = Place("The coordinates you typed", latitude, longitude)
             }
         }
+    }
+
+    // A point the user tapped on the Today map. Only the first call counts, so a rotation does not undo a later change.
+    fun chooseOnMap(latitude: Double, longitude: Double) {
+        if (mapChoiceApplied) return
+        mapChoiceApplied = true
+        useCurrentLocation = false
+        pickedPlace = Place("The place you chose on the map", latitude, longitude)
     }
 
     fun confirmCandidate() {

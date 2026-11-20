@@ -1,7 +1,5 @@
 package com.swmad.spotcast.ui.spots
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -52,34 +50,27 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.location.LocationServices
 import com.swmad.spotcast.domain.MAX_NAME_LENGTH
 import com.swmad.spotcast.domain.MAX_NOTE_LENGTH
 import com.swmad.spotcast.domain.Place
 import com.swmad.spotcast.domain.SpotCategory
+import com.swmad.spotcast.integration.location.LOCATION_PERMISSIONS
 import com.swmad.spotcast.integration.location.LocationService
+import com.swmad.spotcast.integration.location.hasLocationPermission
 import com.swmad.spotcast.ui.components.MapPin
 import com.swmad.spotcast.ui.components.SpotMap
 import com.swmad.spotcast.ui.components.formatCoordinates
-
-// Android 12 and newer lets the user give an approximate position only, and asks for both permissions
-// in one request. The position is read if either one is granted.
-private val PERMISSIONS = arrayOf(
-    Manifest.permission.ACCESS_FINE_LOCATION,
-    Manifest.permission.ACCESS_COARSE_LOCATION
-)
-
-private fun hasLocationPermission(context: android.content.Context): Boolean = PERMISSIONS.any {
-    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSpotScreen(
     onDone: () -> Unit,
     onBack: () -> Unit,
+    // A place the user tapped on the Today map: the form opens with it already chosen
+    chosenLatitude: Double? = null,
+    chosenLongitude: Double? = null,
     viewModel: AddSpotViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -101,13 +92,15 @@ fun AddSpotScreen(
     var note by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        if (!granted) {
-            launcher.launch(PERMISSIONS)
+        if (chosenLatitude != null && chosenLongitude != null) {
+            viewModel.chooseOnMap(chosenLatitude, chosenLongitude)
+        } else if (!granted) {
+            launcher.launch(LOCATION_PERMISSIONS)
         }
     }
     // Reads the position as soon as the permission is there
-    LaunchedEffect(granted) {
-        if (granted && viewModel.location == null) {
+    LaunchedEffect(granted, viewModel.useCurrentLocation) {
+        if (granted && viewModel.useCurrentLocation && viewModel.location == null) {
             viewModel.locate(locationService)
         }
     }
@@ -188,7 +181,7 @@ fun AddSpotScreen(
                     coordinates = viewModel.location?.let {
                         formatCoordinates(it.latitude, it.longitude)
                     },
-                    onRequestPermission = { launcher.launch(PERMISSIONS) },
+                    onRequestPermission = { launcher.launch(LOCATION_PERMISSIONS) },
                     onRefresh = { viewModel.locate(locationService) }
                 )
             } else {

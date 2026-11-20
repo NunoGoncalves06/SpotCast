@@ -44,6 +44,10 @@ object Routes {
     const val SIGN_UP = "signUp"
     const val SPOTS = "spots"
     const val ADD_SPOT = "addSpot"
+    // The same screen, optionally opened with a point the user tapped on the map
+    const val LATITUDE = "lat"
+    const val LONGITUDE = "lon"
+    const val ADD_SPOT_PATTERN = "$ADD_SPOT?$LATITUDE={$LATITUDE}&$LONGITUDE={$LONGITUDE}"
     const val MAP = "map"
     const val PROFILE = "profile"
 
@@ -51,6 +55,8 @@ object Routes {
     const val DETAILS = "details/{$SPOT_ID}"
 
     fun details(spotId: String) = "details/$spotId"
+
+    fun addSpotAt(latitude: Double, longitude: Double) = "$ADD_SPOT?$LATITUDE=$latitude&$LONGITUDE=$longitude"
 }
 
 private data class BottomItem(val route: String, val label: String, val icon: ImageVector)
@@ -150,10 +156,18 @@ fun Navigation(
                     viewModel = sharedSpotsViewModel(controller, entry)
                 )
             }
-            composable(route = Routes.ADD_SPOT) {
+            composable(
+                route = Routes.ADD_SPOT_PATTERN,
+                arguments = listOf(
+                    navArgument(Routes.LATITUDE) { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument(Routes.LONGITUDE) { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { entry ->
                 AddSpotScreen(
                     onDone = { controller.popBackStack() },
-                    onBack = { controller.popBackStack() }
+                    onBack = { controller.popBackStack() },
+                    chosenLatitude = entry.arguments?.getString(Routes.LATITUDE)?.toDoubleOrNull(),
+                    chosenLongitude = entry.arguments?.getString(Routes.LONGITUDE)?.toDoubleOrNull()
                 )
             }
             // Navigation with an argument: the details depend on the id of the spot
@@ -172,6 +186,7 @@ fun Navigation(
                 MapScreen(
                     onOpenSpot = { spotId -> controller.navigate(Routes.details(spotId)) },
                     onAddSpot = { controller.navigate(Routes.ADD_SPOT) },
+                    onAddSpotAt = { latitude, longitude -> controller.navigate(Routes.addSpotAt(latitude, longitude)) },
                     viewModel = sharedSpotsViewModel(controller, entry)
                 )
             }

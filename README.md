@@ -92,6 +92,8 @@ the wave model returns data for any point and would otherwise rate a city park.
 | GPS | `integration/location/LocationService.kt`, `ui/spots/AddSpotScreen.kt` |
 | Map with MapLibre, recoloured for light and dark | `ui/components/SpotMap.kt` |
 | Today map, activity bar and report card | `ui/map/MapScreen.kt` |
+| "My location" button: centers the map on the GPS position, with a slash through the icon when location is off | `ui/map/MyLocationButton.kt`, `ui/map/MapScreen.kt` |
+| Tap an empty place on the map to add a spot there (pop-up, then the form with the place filled in) | `ui/map/MapScreen.kt`, `ui/spots/AddSpotScreen.kt` |
 | Save a place you are not at (address or coordinates, confirmed on a map) | `ui/spots/AddSpotScreen.kt` |
 | Delete a spot, always with a confirmation | `ui/components/DeleteSpotDialog.kt` |
 | Light, dark or system theme | `ui/theme/ThemeViewModel.kt`, `ui/profile/ProfileScreen.kt` |
