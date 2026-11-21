@@ -13,9 +13,9 @@ Part of my portfolio: [nunogoncalves06.github.io](https://nunogoncalves06.github
 ## Try it
 
 - **[Download SpotCast.apk](https://github.com/NunoGoncalves06/SpotCast/releases/latest/download/SpotCast.apk)**
-  (Android 8.0 or newer, about 75 MB). All versions are on the
+  (Android 8.0 or newer, about 77 MB). All versions are on the
   [Releases](https://github.com/NunoGoncalves06/SpotCast/releases) page.
-- [Demo video](docs/SpotCast_demo.mp4) (1 minute, recorded on the Pixel 10a emulator)
+- [Demo video](docs/SpotCast_demo.mp4) (45 seconds: what is new in 2.0 and 2.1, recorded on the Pixel 10a emulator)
 - [Project report](docs/Report.pdf) (the version in this repository leaves out the test user line)
 - [Synopsis](docs/Synopsis.pdf)
 
@@ -25,6 +25,20 @@ Protect may warn about an unknown developer; choose to install anyway.
 
 [![Watch the SpotCast demo video](docs/previews/video_poster.jpg)](docs/SpotCast_demo.mp4)
 
+## What is new in 2.0 and 2.1
+
+- **My location button:** centers the map on your GPS position, with a slash through the icon when location is off.
+- **Tap the map to add a spot:** tap an empty place, press "Add spot" in the pop-up, and the form opens with that
+  place filled in.
+- **Sports and Indoors:** two new kinds of spot, next to Beach, Trail, Viewpoint and Park. Sports comes first.
+- **Field sports** (stopwatch icon) is a built-in activity for Sports spots: a Go when it is dry, calm and between
+  8 and 27 °C. **Gym** is for Indoors spots: always a Go, and a storm, heavy rain or strong wind only adds a warning
+  for the way there. Both are a Skip anywhere else, and say why.
+- **Activities of your own:** pick an icon and set the ranges for wind, rain, sun, temperature and waves. Each one can
+  be limited to the water, to outdoor sports fields or to indoor centres (one of the three, never two). An indoor
+  activity has no weather conditions.
+- **Forecast list:** the columns of the next seven days are aligned, and the day names are in English on any phone.
+
 ## Preview
 
 | Today | Report card | Spots |
@@ -32,6 +46,8 @@ Protect may warn about an unknown developer; choose to install anyway.
 | <img src="docs/previews/today.jpg" width="240" alt="Today map with Go, Maybe and Skip pins"> | <img src="docs/previews/report.jpg" width="240" alt="Report card for a spot in Photos mode: not a photo day, with the best day of the week"> | <img src="docs/previews/spots.jpg" width="240" alt="Spots list with today's best activity per spot"> |
 | **Spot details** | **Delete, with confirmation** | **Dark theme** |
 | <img src="docs/previews/details.jpg" width="240" alt="Spot details with the verdict for every activity"> | <img src="docs/previews/delete.jpg" width="240" alt="Delete confirmation dialog"> | <img src="docs/previews/dark.jpg" width="240" alt="Today map in the dark theme"> |
+| **Field sports** | **Gym** | **New activity** |
+| <img src="docs/previews/new_field.jpg" width="240" alt="Report card of a Sports spot for field sports"> | <img src="docs/previews/new_gym.jpg" width="240" alt="Report card of an Indoors spot for the gym: indoors, the weather does not matter"> | <img src="docs/previews/new_activity.jpg" width="240" alt="Editor of an activity of your own, limited to outdoor sports fields"> |
 
 ## Run it yourself
 
@@ -99,14 +115,15 @@ the way there. Every other activity is a Skip at an Indoors spot.
 | "My location" button: centers the map on the GPS position, with a slash through the icon when location is off | `ui/map/MyLocationButton.kt`, `ui/map/MapScreen.kt` |
 | Tap an empty place on the map to add a spot there (pop-up, then the form with the place filled in) | `ui/map/MapScreen.kt`, `ui/spots/AddSpotScreen.kt` |
 | Save a place you are not at (address or coordinates, confirmed on a map) | `ui/spots/AddSpotScreen.kt` |
+| Sports and Indoors spots, Field sports and Gym; which activity fits which kind of spot (`placeProblem`) | `domain/Spot.kt`, `domain/Activity.kt` |
 | Delete a spot, always with a confirmation | `ui/components/DeleteSpotDialog.kt` |
-| Activities of your own: ranges and marks per condition, edit, delete, up to 10 | `ui/activities/`, `domain/CustomActivity.kt`, `integration/firestore/FireStoreActivityService.kt` |
+| Activities of your own: ranges and marks per condition, a kind of spot (water, sports field, indoors), edit, delete, up to 10 | `ui/activities/`, `domain/CustomActivity.kt`, `integration/firestore/FireStoreActivityService.kt` |
 | Light, dark or system theme | `ui/theme/ThemeViewModel.kt`, `ui/profile/ProfileScreen.kt` |
 | Security rules | `firestore.rules` |
 
 ## Data and services
 
-- **Firestore:** `users/{uid}/spots/{spotId}` with `name`, `category`, `note`, `location` (geopoint) and `createdAt`
+- **Firestore:** `users/{uid}/spots/{spotId}` with `name`, `category` (SPORTS, BEACH, INDOORS, TRAIL, VIEWPOINT, PARK or OTHER), `note`, `location` (geopoint) and `createdAt`
   (server timestamp). The rules let a user read and delete only their own spots, and accept a new spot only with
   these five fields, a name of up to 100 characters and a note of up to 1000.
 - **Activities of your own:** `users/{uid}/activities/{activityId}` with `name` (up to 40 characters), `icon`,
