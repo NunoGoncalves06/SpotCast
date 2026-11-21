@@ -15,7 +15,7 @@ Part of my portfolio: [nunogoncalves06.github.io](https://nunogoncalves06.github
 - **[Download SpotCast.apk](https://github.com/NunoGoncalves06/SpotCast/releases/latest/download/SpotCast.apk)**
   (Android 8.0 or newer, about 77 MB). All versions are on the
   [Releases](https://github.com/NunoGoncalves06/SpotCast/releases) page.
-- [Demo video](docs/SpotCast_demo.mp4) (45 seconds: what is new in 2.0 and 2.1, recorded on the Pixel 10a emulator)
+- [Demo video](docs/SpotCast_demo.mp4) (1 minute: the whole app, from sign in to the new kinds of spot and the activities of your own, recorded on the Pixel 10a emulator)
 - [Project report](docs/Report.pdf) (the version in this repository leaves out the test user line)
 - [Synopsis](docs/Synopsis.pdf)
 
